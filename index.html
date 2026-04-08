@@ -672,19 +672,17 @@ async function loadChart(ticker, period, color) {
   try {
     const map = {'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
     const [interval, range] = map[period].split(',');
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    // Passe par le backend Vercel pour éviter le CORS
+    const url = `${API_URL}/api/quote?ticker=${encodeURIComponent(ticker)}&interval=${interval}&range=${range}`;
+    const res = await fetch(url);
     const json = await res.json();
-    const result = json?.chart?.result?.[0];
-    if (!result) { document.getElementById('chart-area').innerHTML = '<div class="chart-loading">Pas de données</div>'; return; }
 
-    const timestamps = result.timestamp || [];
-    const closes = result.indicators?.quote?.[0]?.close || [];
-    const data = timestamps.map((t, i) => ({ time: t * 1000, price: closes[i] })).filter(d => d.price != null);
+    if (json.error || !json.data || json.data.length < 2) {
+      document.getElementById('chart-area').innerHTML = '<div class="chart-loading">Pas de données disponibles</div>';
+      return;
+    }
 
-    if (data.length < 2) { document.getElementById('chart-area').innerHTML = '<div class="chart-loading">Données insuffisantes</div>'; return; }
-
-    drawChart(data, color);
+    drawChart(json.data, color);
   } catch(e) {
     document.getElementById('chart-area').innerHTML = '<div class="chart-loading">Erreur de chargement</div>';
   }
