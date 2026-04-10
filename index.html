@@ -881,7 +881,7 @@ const DEFAULT = {
     {id:'7',name:'Fonds Euro Spirica NG',isin:'FONDSEURNG',ticker:null,type:'Fonds',qty:null,invested:150,current:150,monthly:30},
   ]},
   pee: { id:'pee', label:'PEE', platform:'Natixis', color:'#2563EB', holdings:[
-    {id:'8',name:'Avenir Diversifié I',isin:'—',ticker:null,type:'Fonds',qty:null,invested:0,current:764.93,monthly:0},
+    {id:'8',name:'Avenir Diversifié I',isin:'—',ticker:null,type:'Fonds',qty:null,invested:764.93,current:764.93,monthly:0},
   ]},
 };
 
@@ -925,7 +925,7 @@ function badgePnl(n,pct){
   return `<span class="badge ${cl}">${sign(n)}${eur(n)} (${sign(pct)}${pct.toFixed(2)}%)</span>`;
 }
 
-function loadP(){try{const v=localStorage.getItem('pf_version');if(v!=='v4'){localStorage.removeItem('pf');localStorage.setItem('pf_version','v4');}const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
+function loadP(){try{const v=localStorage.getItem('pf_version');if(v!=='v5'){localStorage.removeItem('pf');localStorage.setItem('pf_version','v5');}const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
 function saveP(){localStorage.setItem('pf',JSON.stringify(P));}
 
 // ══════════════════════════════════════════════════════
