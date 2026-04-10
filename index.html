@@ -925,7 +925,7 @@ function badgePnl(n,pct){
   return `<span class="badge ${cl}">${sign(n)}${eur(n)} (${sign(pct)}${pct.toFixed(2)}%)</span>`;
 }
 
-function loadP(){try{const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
+function loadP(){try{const v=localStorage.getItem('pf_version');if(v!=='v4'){localStorage.removeItem('pf');localStorage.setItem('pf_version','v4');}const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
 function saveP(){localStorage.setItem('pf',JSON.stringify(P));}
 
 // ══════════════════════════════════════════════════════
