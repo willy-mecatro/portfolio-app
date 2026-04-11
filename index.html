@@ -488,6 +488,28 @@ a { text-decoration: none; }
 .chart-loading { height: 180px; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px; }
 .chart-footer { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--text-4); font-family: var(--font-mono); }
 
+/* TOOLTIP */
+.chart-tooltip {
+  position: absolute; pointer-events: none;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 12px;
+  font-size: 12px; font-family: var(--font-mono);
+  box-shadow: var(--shadow); z-index: 10;
+  display: none; white-space: nowrap;
+}
+.chart-tooltip .tt-date { color: var(--text-3); font-size: 10px; margin-bottom: 3px; }
+.chart-tooltip .tt-price { font-size: 15px; font-weight: 800; }
+.chart-tooltip .tt-chg { font-size: 11px; margin-top: 2px; }
+.chart-wrapper { position: relative; }
+/* PIE */
+.pie-section { margin-bottom: 24px; }
+.pie-wrapper { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+.pie-legend { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 160px; }
+.pie-legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: default; }
+.pie-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pie-legend-label { color: var(--text-2); flex: 1; }
+.pie-legend-val { font-weight: 700; font-family: var(--font-mono); font-size: 13px; }
+.pie-legend-pct { color: var(--text-3); font-size: 11px; }
 /* STATS TABLE */
 .stats-table { display: flex; flex-direction: column; }
 .stats-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--border); }
@@ -925,7 +947,7 @@ function badgePnl(n,pct){
   return `<span class="badge ${cl}">${sign(n)}${eur(n)} (${sign(pct)}${pct.toFixed(2)}%)</span>`;
 }
 
-function loadP(){try{const v=localStorage.getItem('pf_version');if(v!=='v5'){localStorage.removeItem('pf');localStorage.setItem('pf_version','v5');}const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
+function loadP(){try{const v=localStorage.getItem('pf_version');if(v!=='v6'){localStorage.removeItem('pf');localStorage.setItem('pf_version','v6');}const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
 function saveP(){localStorage.setItem('pf',JSON.stringify(P));}
 
 // ══════════════════════════════════════════════════════
@@ -1140,7 +1162,24 @@ function renderDash(){
   });
 
   html += `</div>`;
+
+  // Camembert répartition par enveloppe
+  html += `
+    <div class="card pie-section" style="margin-top:24px">
+      <div class="card-header"><div class="card-title">Répartition par enveloppe</div></div>
+      <div class="card-body" id="pie-container"></div>
+    </div>
+  `;
+
   document.getElementById('page-dashboard').innerHTML = html;
+
+  // Dessiner le camembert
+  const pieData = Object.values(P).map(acc=>({
+    label: acc.label,
+    value: tot(acc.holdings),
+    color: acc.color,
+  })).filter(d=>d.value>0);
+  drawPie(pieData, 'pie-container');
 }
 
 function accIcon(id){
@@ -1341,8 +1380,9 @@ function drawChart(data, color){
   const ca=document.getElementById('chart-area');
   const cf=document.getElementById('chart-footer');
   if(!ca) return;
-  const W=ca.offsetWidth||340, H=180;
-  const P2={t:12,b:20,l:4,r:56};
+
+  const W=ca.offsetWidth||340, H=220;
+  const P2={t:16,b:28,l:4,r:62};
   const prices=data.map(d=>d.price);
   const minP=Math.min(...prices), maxP=Math.max(...prices), rng=maxP-minP||1;
   const isUp=prices[prices.length-1]>=prices[0];
@@ -1351,33 +1391,176 @@ function drawChart(data, color){
   const y=p=>P2.t+(H-P2.t-P2.b)-((p-minP)/rng)*(H-P2.t-P2.b);
   const line=data.map((d,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(d.price).toFixed(1)}`).join(' ');
   const fill=`${line} L${x(data.length-1).toFixed(1)},${(H-P2.b).toFixed(1)} L${P2.l},${(H-P2.b).toFixed(1)} Z`;
-  const yl=[minP,(minP+maxP)/2,maxP];
+  const yl=[minP, minP+rng*0.25, minP+rng*0.5, minP+rng*0.75, maxP];
   const gridColor=isDark?'#27272A':'#E4E4E7';
-  const labelColor=isDark?'#52525B':'#A1A1AA';
-  let svg=`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+  const labelColor=isDark?'#71717A':'#A1A1AA';
+
+  let svg=`<svg id="chart-svg" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;cursor:crosshair">
     <defs>
       <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${lc}" stop-opacity="${isDark?.2:.12}"/>
-        <stop offset="100%" stop-color="${lc}" stop-opacity="0.01"/>
+        <stop offset="0%" stop-color="${lc}" stop-opacity="${isDark?.18:.10}"/>
+        <stop offset="100%" stop-color="${lc}" stop-opacity="0"/>
       </linearGradient>
+      <clipPath id="clip"><rect x="${P2.l}" y="${P2.t}" width="${W-P2.l-P2.r}" height="${H-P2.t-P2.b}"/></clipPath>
     </defs>`;
+
+  // Grid
   yl.forEach(v=>{
     const yy=y(v);
-    svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${gridColor}" stroke-width="1"/>
+    svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="3,4"/>
     <text x="${W-P2.r+6}" y="${(yy+4).toFixed(1)}" fill="${labelColor}" font-size="9" font-family="monospace">${v.toFixed(2)}</text>`;
   });
-  svg+=`<path d="${fill}" fill="url(#cg)"/>
-    <path d="${line}" stroke="${lc}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="${x(data.length-1).toFixed(1)}" cy="${y(prices[prices.length-1]).toFixed(1)}" r="3.5" fill="${lc}" stroke="${isDark?'#18181B':'#FFFFFF'}" stroke-width="2"/>
-  </svg>`;
-  ca.innerHTML=svg;
+
+  // Area + line
+  svg+=`<path d="${fill}" fill="url(#cg)" clip-path="url(#clip)"/>
+    <path d="${line}" stroke="${lc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip)"/>`;
+
+  // Crosshair vertical (hidden by default)
+  svg+=`<line id="tt-vline" x1="0" y1="${P2.t}" x2="0" y2="${H-P2.b}" stroke="${labelColor}" stroke-width="1" stroke-dasharray="4,3" display="none"/>`;
+
+  // Hover dot
+  svg+=`<circle id="tt-dot" cx="0" cy="0" r="5" fill="${lc}" stroke="${isDark?'#18181B':'#FFFFFF'}" stroke-width="2.5" display="none"/>`;
+
+  // Last point dot
+  svg+=`<circle cx="${x(data.length-1).toFixed(1)}" cy="${y(prices[prices.length-1]).toFixed(1)}" r="4" fill="${lc}" stroke="${isDark?'#18181B':'#FFFFFF'}" stroke-width="2"/>`;
+
+  svg+=`</svg>`;
+
+  // Wrapper avec tooltip
+  const wrapper = document.createElement('div');
+  wrapper.className = 'chart-wrapper';
+  wrapper.innerHTML = svg + `<div class="chart-tooltip" id="chart-tooltip">
+    <div class="tt-date" id="tt-date"></div>
+    <div class="tt-price" id="tt-price"></div>
+    <div class="tt-chg" id="tt-chg"></div>
+  </div>`;
+  ca.innerHTML = '';
+  ca.appendChild(wrapper);
+
+  // Interactions souris/touch
+  const svgEl = wrapper.querySelector('#chart-svg');
+  const tooltip = wrapper.querySelector('#chart-tooltip');
+  const vline = wrapper.querySelector('#tt-vline');
+  const dot = wrapper.querySelector('#tt-dot');
+  const ttDate = wrapper.querySelector('#tt-date');
+  const ttPrice = wrapper.querySelector('#tt-price');
+  const ttChg = wrapper.querySelector('#tt-chg');
+  const firstPrice = prices[0];
+
+  function showTooltip(clientX){
+    const rect = svgEl.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const chartW = W - P2.l - P2.r;
+    const pct = Math.max(0, Math.min(1, (mx - P2.l) / chartW));
+    const idx = Math.round(pct * (data.length - 1));
+    const d = data[idx];
+    if(!d) return;
+    const px = x(idx), py = y(d.price);
+    const chg = d.price - firstPrice;
+    const chgPct = firstPrice > 0 ? chg/firstPrice*100 : 0;
+    const isChgUp = chg >= 0;
+    const dateStr = new Date(d.time).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+
+    vline.setAttribute('x1', px.toFixed(1));
+    vline.setAttribute('x2', px.toFixed(1));
+    vline.removeAttribute('display');
+    dot.setAttribute('cx', px.toFixed(1));
+    dot.setAttribute('cy', py.toFixed(1));
+    dot.removeAttribute('display');
+
+    ttDate.textContent = dateStr;
+    ttPrice.textContent = d.price.toFixed(3) + ' €';
+    ttPrice.style.color = lc;
+    ttChg.textContent = (isChgUp?'+':'') + chg.toFixed(3) + ' (' + (isChgUp?'+':'') + chgPct.toFixed(2) + '%)';
+    ttChg.style.color = isChgUp ? '#22C55E' : '#EF4444';
+
+    tooltip.style.display = 'block';
+    let left = px + 12;
+    if(left + 160 > W) left = px - 160;
+    let top = py - 50;
+    if(top < 0) top = 4;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+  }
+
+  function hideTooltip(){
+    tooltip.style.display = 'none';
+    vline.setAttribute('display','none');
+    dot.setAttribute('display','none');
+  }
+
+  svgEl.addEventListener('mousemove', e => showTooltip(e.clientX));
+  svgEl.addEventListener('mouseleave', hideTooltip);
+  svgEl.addEventListener('touchmove', e => { e.preventDefault(); showTooltip(e.touches[0].clientX); }, {passive:false});
+  svgEl.addEventListener('touchend', hideTooltip);
+
+  // Footer
   if(cf){
     const chg=prices[prices.length-1]-prices[0];
-    const chgPct=chg/prices[0]*100;
+    const chgPct=firstPrice>0?chg/firstPrice*100:0;
     const d1=new Date(data[0].time), d2=new Date(data[data.length-1].time);
     const fmt=d=>d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
-    cf.innerHTML=`<span>${fmt(d1)} → ${fmt(d2)}</span><span style="color:${isUp?'var(--accent-light)':'var(--danger-light)'}">${sign(chg)}${chg.toFixed(2)} (${sign(chgPct)}${chgPct.toFixed(2)}%)</span>`;
+    cf.innerHTML=`<span>${fmt(d1)} → ${fmt(d2)}</span><span style="color:${isUp?'var(--accent-light)':'var(--danger-light)'}">${sign(chg)}${chg.toFixed(3)} (${sign(chgPct)}${chgPct.toFixed(2)}%)</span>`;
   }
+}
+
+// ── CAMEMBERT ──────────────────────────────────────────
+function drawPie(data, containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const total = data.reduce((s,d)=>s+d.value,0);
+  if(total<=0){el.innerHTML='<div style="color:var(--text-3);font-size:13px">Aucune donnée</div>';return;}
+  const SIZE = 140, CX = SIZE/2, CY = SIZE/2, R = 58, IR = 30;
+  let startAngle = -Math.PI/2;
+  let paths = '', hoveredIdx = -1;
+
+  function buildSVG(hovered=-1){
+    let svgPaths = '';
+    data.forEach((d,i)=>{
+      const pct = d.value/total;
+      const angle = pct * Math.PI * 2;
+      const endAngle = startAngle + angle;
+      // calc per slice
+      const sa = data.slice(0,i).reduce((s,x)=>s+x.value/total*Math.PI*2,-Math.PI/2);
+      const ea = sa + pct*Math.PI*2;
+      const x1=CX+R*Math.cos(sa), y1=CY+R*Math.sin(sa);
+      const x2=CX+R*Math.cos(ea), y2=CY+R*Math.sin(ea);
+      const ix1=CX+IR*Math.cos(sa), iy1=CY+IR*Math.sin(sa);
+      const ix2=CX+IR*Math.cos(ea), iy2=CY+IR*Math.sin(ea);
+      const large=pct>0.5?1:0;
+      const scale = hovered===i ? 1.06 : 1;
+      const tx = (CX + (R+IR)/2*Math.cos((sa+ea)/2)) * (scale-1);
+      const ty = (CY + (R+IR)/2*Math.sin((sa+ea)/2)) * (scale-1);
+      const path = `M${ix1.toFixed(2)},${iy1.toFixed(2)} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} L${ix2.toFixed(2)},${iy2.toFixed(2)} A${IR},${IR} 0 ${large},0 ${ix1.toFixed(2)},${iy1.toFixed(2)} Z`;
+      svgPaths += `<path d="${path}" fill="${d.color}" opacity="${hovered===-1||hovered===i?1:0.5}" transform="translate(${tx.toFixed(2)},${ty.toFixed(2)})" style="cursor:pointer;transition:all .2s" data-idx="${i}"/>`;
+    });
+    return svgPaths;
+  }
+
+  function render(hovered=-1){
+    const svg = `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" style="overflow:visible">${buildSVG(hovered)}</svg>`;
+    el.querySelector('.pie-svg-wrap').innerHTML = svg;
+    el.querySelectorAll('path[data-idx]').forEach(p=>{
+      p.addEventListener('mouseenter',()=>render(+p.dataset.idx));
+      p.addEventListener('mouseleave',()=>render(-1));
+    });
+  }
+
+  // Legend
+  const legendHtml = data.map(d=>`
+    <div class="pie-legend-item">
+      <div class="pie-legend-dot" style="background:${d.color}"></div>
+      <span class="pie-legend-label">${d.label}</span>
+      <span class="pie-legend-val">${eur(d.value)}</span>
+      <span class="pie-legend-pct">${(d.value/total*100).toFixed(1)}%</span>
+    </div>`).join('');
+
+  el.innerHTML = `<div class="pie-wrapper">
+    <div class="pie-svg-wrap"></div>
+    <div class="pie-legend">${legendHtml}</div>
+  </div>`;
+
+  render();
 }
 
 // ══════════════════════════════════════════════════════
