@@ -942,21 +942,21 @@ const REFRESH_MS = 30000;
 // DONNÉES
 // ══════════════════════════════════════════════════════
 const DEFAULT = {
-  pea: { id:'pea', label:'PEA', platform:'Trade Republic', color:'#16A34A', holdings:[
+  pea: { id:'pea', label:'PEA', platform:'Trade Republic', color:'#6366F1', holdings:[
     {id:'1',name:'Nasdaq 100',isin:'FR0011871110',ticker:'PUST.PA',type:'ETF',qty:2,invested:172,current:172,monthly:85},
     {id:'2',name:'Stoxx Europe 600 ACC',isin:'FR0011550193',ticker:'ETZ.PA',type:'ETF',qty:4,invested:80,current:80,monthly:40},
     {id:'3',name:'MSCI Emerging Markets ESG',isin:'FR0013412020',ticker:'PAEEM.PA',type:'ETF',qty:4,invested:126,current:126,monthly:60},
   ]},
-  cto: { id:'cto', label:'CTO', platform:'Trade Republic', color:'#DC2626', holdings:[
+  cto: { id:'cto', label:'CTO', platform:'Trade Republic', color:'#D97706', holdings:[
     {id:'4',name:'Xiaomi',isin:'KYG9830T1067',ticker:'1810.HK',type:'Action',qty:13.91,invested:34,current:34,monthly:0},
     {id:'5',name:'Sylvania Platinum',isin:'BMG864081044',ticker:'SLP.L',type:'Action',qty:10.29,invested:23,current:23,monthly:0},
     {id:'9',name:'Commodity ex-Agriculture',isin:'LU1829218749',ticker:'LYTR.DE',type:'ETF',qty:0.69,invested:24,current:24,monthly:10},
   ]},
-  av: { id:'av', label:'Assurance Vie', platform:'Linxea Spirit 2', color:'#7C3AED', holdings:[
+  av: { id:'av', label:'Assurance Vie', platform:'Linxea Spirit 2', color:'#8B5CF6', holdings:[
     {id:'6',name:'Amundi MSCI World Swap II',isin:'FR0010315770',ticker:'WLD.PA',type:'ETF',qty:0.96,invested:350,current:350,monthly:120},
     {id:'7',name:'Fonds Euro Spirica NG',isin:'FONDSEURNG',ticker:null,type:'Fonds',qty:null,invested:150,current:150,monthly:30},
   ]},
-  pee: { id:'pee', label:'PEE', platform:'Natixis', color:'#2563EB', holdings:[
+  pee: { id:'pee', label:'PEE', platform:'Natixis', color:'#0D9488', holdings:[
     {id:'8',name:'Avenir Diversifié I',isin:'—',ticker:null,type:'Fonds',qty:null,invested:764.93,current:764.93,monthly:0},
   ]},
 };
@@ -973,6 +973,7 @@ const SCENARIOS = [
 let P = loadP();
 let page = 'dashboard';
 let detail = null;
+let openAccounts = new Set();  // mémorise les cartes dépliées (dashboard)
 let editAccId = null, editH = null, curType = 'ETF';
 let simM, simY = 15;
 let alerts = JSON.parse(localStorage.getItem('al')||'[]');
@@ -1026,9 +1027,13 @@ async function loadFromSupabase() {
       const accRows = unique.filter(r => r.account_id === accId);
       if(accRows.length === 0) return;
       const first = accRows[0];
+      // Couleur/label/platform TOUJOURS depuis DEFAULT (pas Supabase) pour garder le design à jour
+      const def = DEFAULT[accId] || {};
       p[accId] = {
-        id: accId, label: first.account_label,
-        platform: first.account_platform, color: first.account_color,
+        id: accId,
+        label: def.label || first.account_label,
+        platform: def.platform || first.account_platform,
+        color: def.color || first.account_color,
         holdings: accRows.map(r => ({
           id: r.holding_id, name: r.name, isin: r.isin||'—',
           ticker: r.ticker, type: r.type,
@@ -1256,7 +1261,11 @@ async function fetchLive(){
     }));
     saveP(); lastUpdate=new Date(); setStatus('live');
     checkAlerts();
-    if(page==='dashboard') renderDash();
+    // Dashboard : si des cartes sont dépliées, mise à jour douce (pas de re-render qui replie tout)
+    if(page==='dashboard'){
+      if(openAccounts.size>0) updateDashValues();
+      else renderDash();
+    }
     if(page==='portefeuille') renderPort();
     if(page==='alertes') renderAlerts();
     if(page==='detail'&&detail) updateDetailPrice();
@@ -1386,8 +1395,8 @@ function renderDash(){
             </div>
           </div>
           <div class="acc-right">
-            <div class="acc-value" style="color:${acc.color}">${eur(v)}</div>
-            <div class="acc-gain" style="color:${colorPnl(gain)}">${sign(gain)}${gainPct.toFixed(2)}%</div>
+            <div class="acc-value" id="accval-${acc.id}" style="color:${acc.color}">${eur(v)}</div>
+            <div class="acc-gain" id="accgain-${acc.id}" style="color:${colorPnl(gain)}">${sign(gain)}${gainPct.toFixed(2)}%</div>
             <div class="acc-chevron" id="chev-d-${acc.id}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
@@ -1410,8 +1419,8 @@ function renderDash(){
                   </div>
                 </div>
                 <div class="h-right">
-                  <div class="h-value">${eurD(h.current||0)}</div>
-                  ${h.invested>0?`<div class="h-perf" style="color:${colorPnl(hg)}">${sign(hg)}${hgPct.toFixed(1)}%</div>`:''}
+                  <div class="h-value" id="hval-${acc.id}-${h.id}">${eurD(h.current||0)}</div>
+                  ${h.invested>0?`<div class="h-perf" id="hperf-${acc.id}-${h.id}" style="color:${colorPnl(hg)}">${sign(hg)}${hgPct.toFixed(1)}%</div>`:''}
                   <div class="h-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
                 </div>
               </div>`;
@@ -1440,6 +1449,7 @@ function renderDash(){
     color: acc.color,
   })).filter(d=>d.value>0);
   drawPie(pieData, 'pie-container');
+  restoreOpenAccounts();
 }
 
 function accIcon(id){
@@ -1459,6 +1469,41 @@ function toggleAcc(id){
   const open=el.style.display==='none'||el.style.display==='';
   el.style.display=open?'block':'none';
   if(chev) chev.style.transform=open?'rotate(180deg)':'';
+  // Mémoriser l'état (id du type "d-pea")
+  if(open) openAccounts.add(id); else openAccounts.delete(id);
+}
+
+// Réapplique l'état déplié après un re-render
+function restoreOpenAccounts(){
+  openAccounts.forEach(id=>{
+    const el=document.getElementById(`hold-${id}`);
+    const chev=document.getElementById(`chev-${id}`);
+    if(el){ el.style.display='block'; if(chev) chev.style.transform='rotate(180deg)'; }
+  });
+}
+
+// Mise à jour DOUCE des valeurs du dashboard (sans réécrire le HTML, garde l'état déplié)
+function updateDashValues(){
+  const totC=Object.values(P).reduce((s,a)=>s+tot(a.holdings),0);
+  const totI=Object.values(P).reduce((s,a)=>s+invested(a.holdings),0);
+  const g=totC-totI, gPct=totI>0?g/totI*100:0;
+  // Patrimoine total
+  const hv=document.querySelector('.hero-value'); if(hv) hv.textContent=eur(totC);
+  const hc=document.querySelector('.hero-change .badge'); 
+  if(hc){ hc.className='badge '+(g>=0?'badge-green':'badge-red'); hc.textContent=`${sign(g)}${eur(g)} (${sign(gPct)}${gPct.toFixed(2)}%)`; }
+  // Valeurs par compte + lignes
+  Object.values(P).forEach(acc=>{
+    const v=tot(acc.holdings), i=invested(acc.holdings), gg=v-i, gpct=i>0?gg/i*100:0;
+    const av=document.getElementById(`accval-${acc.id}`); if(av) av.textContent=eur(v);
+    const ag=document.getElementById(`accgain-${acc.id}`);
+    if(ag){ ag.style.color=gg>=0?'var(--accent-light)':'var(--danger-light)'; ag.textContent=`${sign(gg)}${gpct.toFixed(2)}%`; }
+    acc.holdings.forEach(h=>{
+      const hv2=document.getElementById(`hval-${acc.id}-${h.id}`); if(hv2) hv2.textContent=eurD(h.current||0);
+      const hp=document.getElementById(`hperf-${acc.id}-${h.id}`);
+      if(hp){ const hg=(h.current||0)-(h.invested||0), hgp=h.invested>0?hg/h.invested*100:0;
+        hp.style.color=hg>=0?'var(--accent-light)':'var(--danger-light)'; hp.textContent=`${sign(hg)}${hgp.toFixed(1)}%`; }
+    });
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -1698,8 +1743,8 @@ function drawChart(data, color){
   const cf=document.getElementById('chart-footer');
   if(!ca) return;
 
-  const W=ca.offsetWidth||340, H=220;
-  const P2={t:16,b:28,l:4,r:62};
+  const W=ca.offsetWidth||340, H=200;
+  const P2={t:14,b:22,l:4,r:8};
   const prices=data.map(d=>d.price);
 
   // Seuils d'alerte pour cet actif
@@ -1719,7 +1764,7 @@ function drawChart(data, color){
   const y=p=>P2.t+(H-P2.t-P2.b)-((p-minP)/rng)*(H-P2.t-P2.b);
   const line=data.map((d,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(d.price).toFixed(1)}`).join(' ');
   const fill=`${line} L${x(data.length-1).toFixed(1)},${(H-P2.b).toFixed(1)} L${P2.l},${(H-P2.b).toFixed(1)} Z`;
-  const yl=[minP, minP+rng*0.25, minP+rng*0.5, minP+rng*0.75, maxP];
+  const yl=[minP, minP+rng*0.5, maxP];
   const gridColor=isDark?'#27272A':'#E4E4E7';
   const labelColor=isDark?'#71717A':'#A1A1AA';
 
@@ -1732,11 +1777,13 @@ function drawChart(data, color){
       <clipPath id="clip"><rect x="${P2.l}" y="${P2.t}" width="${W-P2.l-P2.r}" height="${H-P2.t-P2.b}"/></clipPath>
     </defs>`;
 
-  // Grid
-  yl.forEach(v=>{
+  // Grid — lignes pleine largeur + labels discrets posés sur la ligne à gauche
+  yl.forEach((v,i)=>{
     const yy=y(v);
-    svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="3,4"/>
-    <text x="${W-P2.r+6}" y="${(yy+4).toFixed(1)}" fill="${labelColor}" font-size="9" font-family="monospace">${v.toFixed(2)}</text>`;
+    svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="3,4"/>`;
+    // label au-dessus de la ligne, aligné à gauche, sauf la ligne du bas (évite chevauchement axe X)
+    const ty = i===0 ? yy-3 : yy-3;
+    svg+=`<text x="${P2.l+2}" y="${ty.toFixed(1)}" fill="${labelColor}" font-size="9" font-family="monospace" opacity="0.7">${v.toFixed(2)}</text>`;
   });
 
   // Area + line
@@ -2015,8 +2062,14 @@ function renderAlerts(){
         <button class="type-btn up on" id="af-up" onclick="setAT('up')">▲ Au-dessus de</button>
         <button class="type-btn dn" id="af-dn" onclick="setAT('dn')">▼ En-dessous de</button>
       </div>
-      <div class="modal-label">Prix cible (€)</div>
-      <input class="input" id="af-val" type="number" step="0.01" placeholder="Ex: 90.00" style="margin-bottom:12px">
+      <div class="modal-label">Mode de seuil</div>
+      <div class="type-row" style="margin-bottom:10px">
+        <button class="type-btn on" id="afm-price" onclick="setAlertMode('price')" style="border-color:var(--blue);color:var(--blue-light)">€ Prix fixe</button>
+        <button class="type-btn" id="afm-pct" onclick="setAlertMode('pct')" style="border-color:var(--border)">% Variation</button>
+      </div>
+      <div class="modal-label" id="af-val-label">Prix cible (€)</div>
+      <input class="input" id="af-val" type="number" step="0.01" placeholder="Ex: 90.00" style="margin-bottom:6px" oninput="updateAlertPreview()">
+      <div id="af-preview" style="font-size:12px;color:var(--text-3);margin-bottom:12px"></div>
       <button class="btn btn-primary btn-full" onclick="addAlert()">Créer l'alerte</button>
     </div>
     <div class="alerts-list">
@@ -2048,7 +2101,7 @@ function renderAlerts(){
           </div>
           <div>
             <div class="alert-asset">${a.asset}</div>
-            <div class="alert-cond" style="color:${cl}">${isUp?'≥':'≤'} ${a.value} € · <span style="font-family:var(--font)">${statusTxt}</span></div>
+            <div class="alert-cond" style="color:${cl}">${isUp?'≥':'≤'} ${a.value} €${a.pctInfo?` <span style="color:var(--blue-light)">(${a.type==='up'?'+':'-'}${a.pctInfo.pct}%)</span>`:''} · <span style="font-family:var(--font)">${statusTxt}</span></div>
           </div>
         </div>
         <div class="alert-actions">
@@ -2070,12 +2123,54 @@ function setAT(t){
   newAT=t;
   document.getElementById('af-up')?.classList.toggle('on',t==='up');
   document.getElementById('af-dn')?.classList.toggle('on',t==='dn');
+  updateAlertPreview();
+}
+let alertMode='price';
+function setAlertMode(m){
+  alertMode=m;
+  document.getElementById('afm-price')?.classList.toggle('on',m==='price');
+  document.getElementById('afm-pct')?.classList.toggle('on',m==='pct');
+  document.getElementById('afm-price').style.borderColor = m==='price'?'var(--blue)':'var(--border)';
+  document.getElementById('afm-price').style.color = m==='price'?'var(--blue-light)':'var(--text-2)';
+  document.getElementById('afm-pct').style.borderColor = m==='pct'?'var(--blue)':'var(--border)';
+  document.getElementById('afm-pct').style.color = m==='pct'?'var(--blue-light)':'var(--text-2)';
+  const lbl=document.getElementById('af-val-label');
+  const inp=document.getElementById('af-val');
+  if(m==='pct'){ lbl.textContent='Variation (%) — ex: 5 pour +5%'; inp.placeholder='Ex: 5'; }
+  else { lbl.textContent='Prix cible (€)'; inp.placeholder='Ex: 90.00'; }
+  updateAlertPreview();
+}
+function updateAlertPreview(){
+  const prev=document.getElementById('af-preview');
+  if(!prev) return;
+  const asset=document.getElementById('af-asset')?.value?.trim();
+  const val=parseFloat(document.getElementById('af-val')?.value);
+  if(!asset||isNaN(val)){ prev.textContent=''; return; }
+  const cur=getAssetPrice(asset);
+  if(cur==null){ prev.innerHTML='<span style="color:var(--text-4)">Prix actuel indisponible</span>'; return; }
+  if(alertMode==='pct'){
+    const target = newAT==='up' ? cur*(1+val/100) : cur*(1-val/100);
+    prev.innerHTML=`Prix actuel: <b>${cur.toFixed(2)}€</b> → seuil calculé: <b style="color:var(--blue-light)">${target.toFixed(2)}€</b>`;
+  } else {
+    const dist=((val-cur)/cur*100);
+    prev.innerHTML=`Prix actuel: <b>${cur.toFixed(2)}€</b> (${sign(dist)}${dist.toFixed(1)}% du seuil)`;
+  }
 }
 function addAlert(){
   const asset=document.getElementById('af-asset')?.value?.trim();
-  const val=parseFloat(document.getElementById('af-val')?.value);
-  if(!asset||isNaN(val)||val<=0){alert('Remplis tous les champs');return;}
-  const newAlert={id:Date.now(),asset,type:newAT,value:val,active:true,triggered:false};
+  let val=parseFloat(document.getElementById('af-val')?.value);
+  if(!asset||isNaN(val)){alert('Remplis tous les champs');return;}
+  // Mode pourcentage : convertir en prix cible absolu
+  let pctInfo=null;
+  if(alertMode==='pct'){
+    const cur=getAssetPrice(asset);
+    if(cur==null){alert('Prix actuel indisponible pour cet actif');return;}
+    pctInfo={base:cur, pct:val};
+    val = newAT==='up' ? cur*(1+val/100) : cur*(1-val/100);
+    val = +val.toFixed(2);
+  }
+  if(val<=0){alert('Valeur invalide');return;}
+  const newAlert={id:Date.now(),asset,type:newAT,value:val,active:true,triggered:false,pctInfo};
   alerts.push(newAlert);
   saveAlertToSupabase(newAlert);
   localStorage.setItem('al',JSON.stringify(alerts));
