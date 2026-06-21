@@ -2,16 +2,15 @@
 <html lang="fr" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#09090B" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#FAFAFA" media="(prefers-color-scheme: light)">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Portfolio">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="Portfolio">
+<meta name="theme-color" content="#09090B">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Portfolio</title>
 <style>
@@ -752,13 +751,13 @@ a { text-decoration: none; }
         <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         Thème clair
       </div>
+      <div class="nav-item" onclick="goTo('historique')" id="nav-historique">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Historique
+      </div>
       <div class="nav-item" onclick="goTo('edit')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Modifier
-      </div>
-      <div class="nav-item" id="install-btn" onclick="installApp()" style="display:none;background:var(--accent);color:white;margin-top:8px">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Installer l'app
       </div>
     </div>
   </aside>
@@ -801,6 +800,7 @@ a { text-decoration: none; }
       <div class="page" id="page-simulation"></div>
       <div class="page" id="page-alertes"></div>
       <div class="page" id="page-edit"></div>
+    <div class="page" id="page-historique"></div>
     </div>
 
     <!-- BOTTOM NAV -->
@@ -821,6 +821,10 @@ a { text-decoration: none; }
         <button class="bottom-nav-item" onclick="goTo('alertes')" id="bnav-alertes">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
           <span>Alertes</span>
+        </button>
+        <button class="bottom-nav-item" onclick="goTo('historique')" id="bnav-historique">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Historique</span>
         </button>
         <button class="bottom-nav-item" onclick="goTo('edit')" id="bnav-edit">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -865,19 +869,23 @@ a { text-decoration: none; }
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="modal-field">
-          <label class="modal-label">Investi (€)</label>
-          <input class="input" id="f-invested" type="number" placeholder="250">
+          <label class="modal-label">Quantité (parts)</label>
+          <input class="input" id="f-qty" type="number" step="0.0001" placeholder="Ex: 2" oninput="updateInvestedPreview()">
         </div>
         <div class="modal-field">
-          <label class="modal-label">Valeur actuelle (€)</label>
-          <input class="input" id="f-current" type="number" placeholder="270">
+          <label class="modal-label">Prix moyen d'achat (€)</label>
+          <input class="input" id="f-pru" type="number" step="0.01" placeholder="Ex: 85.00" oninput="updateInvestedPreview()">
         </div>
-        <div class="modal-field">
-          <label class="modal-label">Quantité</label>
-          <input class="input" id="f-qty" type="number" placeholder="Optionnel">
+        <div class="modal-field" style="grid-column:1 / -1">
+          <label class="modal-label">Montant total investi (€) <span style="color:var(--text-4);text-transform:none;letter-spacing:0">— calculé auto si PRU rempli</span></label>
+          <input class="input" id="f-invested" type="number" step="0.01" placeholder="Ex: 170">
         </div>
-        <div class="modal-field">
-          <label class="modal-label">Mensuel (€)</label>
+        <div class="modal-field" style="grid-column:1 / -1">
+          <label class="modal-label">Valeur actuelle (€) <span style="color:var(--text-4);text-transform:none;letter-spacing:0">— laisse vide si ticker (cours live)</span></label>
+          <input class="input" id="f-current" type="number" step="0.01" placeholder="Auto si ticker">
+        </div>
+        <div class="modal-field" style="grid-column:1 / -1">
+          <label class="modal-label">Versement mensuel (€)</label>
           <input class="input" id="f-monthly" type="number" placeholder="0" value="0">
         </div>
       </div>
@@ -894,27 +902,68 @@ a { text-decoration: none; }
 // CONFIG
 // ══════════════════════════════════════════════════════
 const API = 'https://portfolio-api-j1go.vercel.app';
+
+// ── SUPABASE CONFIG ────────────────────────────────────
+const SB_URL = 'https://innpgitkqrhoynnlysin.supabase.co';
+const SB_KEY = 'sb_publishable_cMRCLzNYfJih_moYlaUZiw_xic4lLXS';
+const SB = {
+  headers: {
+    'Content-Type': 'application/json',
+    'apikey': SB_KEY,
+    'Authorization': `Bearer ${SB_KEY}`,
+    'Prefer': 'return=representation',
+  },
+  async get(table, params='') {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {headers: this.headers});
+    return r.json();
+  },
+  async upsert(table, data) {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {...this.headers, 'Prefer': 'resolution=merge-duplicates,return=representation'},
+      body: JSON.stringify(data),
+    });
+    return r.json();
+  },
+  async update(table, id, data) {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'PATCH', headers: this.headers, body: JSON.stringify(data),
+    });
+    return r.json();
+  },
+  async delete(table, id) {
+    await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'DELETE', headers: this.headers,
+    });
+  },
+  async insert(table, data) {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+      method: 'POST', headers: this.headers, body: JSON.stringify(data),
+    });
+    return r.json();
+  },
+};
 const REFRESH_MS = 30000;
 
 // ══════════════════════════════════════════════════════
 // DONNÉES
 // ══════════════════════════════════════════════════════
 const DEFAULT = {
-  pea: { id:'pea', label:'PEA', platform:'Trade Republic', color:'#16A34A', holdings:[
+  pea: { id:'pea', label:'PEA', platform:'Trade Republic', color:'#6366F1', holdings:[
     {id:'1',name:'Nasdaq 100',isin:'FR0011871110',ticker:'PUST.PA',type:'ETF',qty:2,invested:172,current:172,monthly:85},
     {id:'2',name:'Stoxx Europe 600 ACC',isin:'FR0011550193',ticker:'ETZ.PA',type:'ETF',qty:4,invested:80,current:80,monthly:40},
     {id:'3',name:'MSCI Emerging Markets ESG',isin:'FR0013412020',ticker:'PAEEM.PA',type:'ETF',qty:4,invested:126,current:126,monthly:60},
   ]},
-  cto: { id:'cto', label:'CTO', platform:'Trade Republic', color:'#DC2626', holdings:[
+  cto: { id:'cto', label:'CTO', platform:'Trade Republic', color:'#D97706', holdings:[
     {id:'4',name:'Xiaomi',isin:'KYG9830T1067',ticker:'1810.HK',type:'Action',qty:13.91,invested:34,current:34,monthly:0},
     {id:'5',name:'Sylvania Platinum',isin:'BMG864081044',ticker:'SLP.L',type:'Action',qty:10.29,invested:23,current:23,monthly:0},
     {id:'9',name:'Commodity ex-Agriculture',isin:'LU1829218749',ticker:'LYTR.DE',type:'ETF',qty:0.69,invested:24,current:24,monthly:10},
   ]},
-  av: { id:'av', label:'Assurance Vie', platform:'Linxea Spirit 2', color:'#7C3AED', holdings:[
+  av: { id:'av', label:'Assurance Vie', platform:'Linxea Spirit 2', color:'#8B5CF6', holdings:[
     {id:'6',name:'Amundi MSCI World Swap II',isin:'FR0010315770',ticker:'WLD.PA',type:'ETF',qty:0.96,invested:350,current:350,monthly:120},
     {id:'7',name:'Fonds Euro Spirica NG',isin:'FONDSEURNG',ticker:null,type:'Fonds',qty:null,invested:150,current:150,monthly:30},
   ]},
-  pee: { id:'pee', label:'PEE', platform:'Natixis', color:'#2563EB', holdings:[
+  pee: { id:'pee', label:'PEE', platform:'Natixis', color:'#0D9488', holdings:[
     {id:'8',name:'Avenir Diversifié I',isin:'—',ticker:null,type:'Fonds',qty:null,invested:764.93,current:764.93,monthly:0},
   ]},
 };
@@ -931,6 +980,7 @@ const SCENARIOS = [
 let P = loadP();
 let page = 'dashboard';
 let detail = null;
+let openAccounts = new Set();  // mémorise les cartes dépliées (dashboard)
 let editAccId = null, editH = null, curType = 'ETF';
 let simM, simY = 15;
 let alerts = JSON.parse(localStorage.getItem('al')||'[]');
@@ -959,8 +1009,166 @@ function badgePnl(n,pct){
   return `<span class="badge ${cl}">${sign(n)}${eur(n)} (${sign(pct)}${pct.toFixed(2)}%)</span>`;
 }
 
-function loadP(){try{const v=localStorage.getItem('pf_version');if(v!=='v6'){localStorage.removeItem('pf');localStorage.setItem('pf_version','v6');}const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}return JSON.parse(JSON.stringify(DEFAULT));}
-function saveP(){localStorage.setItem('pf',JSON.stringify(P));}
+// ── SYNC SUPABASE ──────────────────────────────────────
+async function loadFromSupabase() {
+  try {
+    // Récupère seulement les lignes uniques les plus récentes par (account_id, holding_id)
+    const rows = await SB.get('portfolio', 
+      'order=updated_at.desc&limit=100'
+    );
+    if(!rows || rows.length === 0) return null;
+
+    // Déduplique : garde seulement la première occurrence de chaque holding_id par account
+    const seen = new Set();
+    const unique = rows.filter(r => {
+      const key = `${r.account_id}:${r.holding_id}`;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const p = {};
+    // Ordre fixe des comptes
+    const ORDER = ['pea','cto','av','pee'];
+    ORDER.forEach(accId => {
+      const accRows = unique.filter(r => r.account_id === accId);
+      if(accRows.length === 0) return;
+      const first = accRows[0];
+      // Couleur/label/platform TOUJOURS depuis DEFAULT (pas Supabase) pour garder le design à jour
+      const def = DEFAULT[accId] || {};
+      p[accId] = {
+        id: accId,
+        label: def.label || first.account_label,
+        platform: def.platform || first.account_platform,
+        color: def.color || first.account_color,
+        holdings: accRows.map(r => ({
+          id: r.holding_id, name: r.name, isin: r.isin||'—',
+          ticker: r.ticker, type: r.type,
+          qty: r.qty ? parseFloat(r.qty) : null,
+          invested: parseFloat(r.invested)||0,
+          current: parseFloat(r.current_value)||0,
+          monthly: parseFloat(r.monthly)||0,
+        })),
+      };
+    });
+    return Object.keys(p).length > 0 ? p : null;
+  } catch(e) { console.warn('Supabase load error:', e); return null; }
+}
+
+async function saveToSupabase() {
+  try {
+    const rows = [];
+    Object.values(P).forEach(acc => {
+      acc.holdings.forEach(h => {
+        rows.push({
+          account_id: acc.id, account_label: acc.label,
+          account_platform: acc.platform, account_color: acc.color,
+          holding_id: h.id, name: h.name, isin: h.isin||'—',
+          ticker: h.ticker||null, type: h.type,
+          qty: h.qty||null, invested: h.invested||0,
+          current_value: h.current||0, monthly: h.monthly||0,
+          updated_at: new Date().toISOString(),
+        });
+      });
+    });
+    // Upsert avec contrainte unique : on_conflict DANS L'URL (pas en header)
+    const r = await fetch(`${SB_URL}/rest/v1/portfolio?on_conflict=account_id,holding_id`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(rows),
+    });
+    if(!r.ok) console.warn('Supabase save error:', await r.text());
+  } catch(e) { console.warn('Supabase save error:', e); }
+}
+
+async function deleteFromSupabase(accId, holdingId) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/portfolio?account_id=eq.${accId}&holding_id=eq.${holdingId}`, {
+      method: 'DELETE', headers: SB.headers,
+    });
+  } catch(e) {}
+}
+
+// Alertes Supabase
+async function loadAlertsFromSupabase() {
+  try {
+    const rows = await SB.get('alerts');
+    if(!rows || rows.length === 0) return null;
+    return rows.map((r,i) => ({
+      id: Date.now()+i, _dbId: r.id, asset: r.asset, type: r.type,
+      value: parseFloat(r.value), active: r.active, triggered: r.triggered||false,
+    }));
+  } catch(e) { return null; }
+}
+
+async function saveAlertToSupabase(alert) {
+  try {
+    if(alert._dbId) {
+      await SB.update('alerts', alert._dbId, {active: alert.active, triggered: alert.triggered||false});
+    } else {
+      const res = await SB.insert('alerts', {asset: alert.asset, type: alert.type, value: alert.value, active: alert.active});
+      if(res[0]) alert._dbId = res[0].id;
+    }
+  } catch(e) {}
+}
+
+async function deleteAlertFromSupabase(dbId) {
+  try { if(dbId) await SB.delete('alerts', dbId); } catch(e) {}
+}
+
+// Ordres Supabase
+async function saveOrder(order) {
+  try {
+    await SB.insert('orders', {
+      account_id: order.accountId, holding_name: order.name,
+      ticker: order.ticker||null, type: order.type,
+      quantity: order.qty, price: order.price,
+      total: order.total, date: order.date||new Date().toISOString(),
+      notes: order.notes||null,
+    });
+  } catch(e) {}
+}
+
+async function loadOrders() {
+  try {
+    return await SB.get('orders', 'order=date.desc&limit=100');
+  } catch(e) { return []; }
+}
+
+// Simulation Supabase
+async function saveSimToSupabase() {
+  try {
+    const existing = await SB.get('simulation', 'limit=1');
+    if(existing && existing.length > 0) {
+      await SB.update('simulation', existing[0].id, {monthly: simM, years: simY});
+    } else {
+      await SB.insert('simulation', {monthly: simM, years: simY});
+    }
+  } catch(e) {}
+}
+
+async function loadSimFromSupabase() {
+  try {
+    const rows = await SB.get('simulation', 'limit=1');
+    if(rows && rows.length > 0) return {monthly: rows[0].monthly, years: rows[0].years};
+    return null;
+  } catch(e) { return null; }
+}
+
+// LocalStorage fallback
+function loadP(){
+  try{const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}
+  return JSON.parse(JSON.stringify(DEFAULT));
+}
+function saveP(){
+  localStorage.setItem('pf',JSON.stringify(P));
+  saveToSupabase(); // sync en arrière-plan
+}
 
 // ══════════════════════════════════════════════════════
 // THEME
@@ -982,7 +1190,7 @@ function toggleTheme(){isDark=!isDark;localStorage.setItem('theme',isDark?'dark'
 // ══════════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════════
-const PAGE_TITLES = {dashboard:'Tableau de bord',portefeuille:'Portefeuille',simulation:'Simulation',alertes:'Alertes',edit:'Modifier',detail:'Détail'};
+const PAGE_TITLES = {dashboard:'Tableau de bord',portefeuille:'Portefeuille',simulation:'Simulation',alertes:'Alertes',edit:'Modifier',detail:'Détail',historique:'Historique'};
 
 function goTo(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1008,6 +1216,7 @@ function goTo(name){
   if(name==='simulation') renderSim();
   if(name==='alertes') renderAlerts();
   if(name==='edit') renderEdit();
+  if(name==='historique') renderHistorique();
 }
 
 function showDetail(accId, hId){
@@ -1058,12 +1267,81 @@ async function fetchLive(){
       h.marketData={price:p.price,change:p.change,changePercent:p.changePercent,currency:'EUR'};
     }));
     saveP(); lastUpdate=new Date(); setStatus('live');
-    if(page==='dashboard') renderDash();
+    checkAlerts();
+    // Dashboard : si des cartes sont dépliées, mise à jour douce (pas de re-render qui replie tout)
+    if(page==='dashboard'){
+      if(openAccounts.size>0) updateDashValues();
+      else renderDash();
+    }
     if(page==='portefeuille') renderPort();
+    if(page==='alertes') renderAlerts();
     if(page==='detail'&&detail) updateDetailPrice();
   }catch(e){ setStatus('error'); }
 }
 function startRefresh(){ fetchLive(); clearInterval(refreshTimer); refreshTimer=setInterval(fetchLive,REFRESH_MS); }
+
+// Trouve le prix actuel d'un actif par son nom
+function getAssetPrice(assetName){
+  for(const acc of Object.values(P)){
+    for(const h of acc.holdings){
+      if(h.name.toLowerCase()===assetName.toLowerCase() && h.marketData?.price){
+        return h.marketData.price;
+      }
+      // Match partiel (premier mot)
+      if(h.name.toLowerCase().includes(assetName.toLowerCase()) && h.marketData?.price){
+        return h.marketData.price;
+      }
+    }
+  }
+  return null;
+}
+
+// Vérifie toutes les alertes actives
+function checkAlerts(){
+  let triggered=false;
+  alerts.forEach(a=>{
+    if(!a.active) return;
+    const price=getAssetPrice(a.asset);
+    if(price==null) return;
+    const hit = a.type==='up' ? price>=a.value : price<=a.value;
+    if(hit && !a.triggered){
+      a.triggered=true;
+      triggered=true;
+      notifyAlert(a, price);
+      saveAlertToSupabase(a);
+    } else if(!hit && a.triggered){
+      a.triggered=false; // reset si repassé de l'autre côté
+      saveAlertToSupabase(a);
+    }
+  });
+  if(triggered) localStorage.setItem('al',JSON.stringify(alerts));
+}
+
+// Notification quand une alerte se déclenche
+function notifyAlert(a, price){
+  // Notification native si autorisée
+  if('Notification' in window && Notification.permission==='granted'){
+    new Notification('🔔 Alerte prix', {
+      body: `${a.asset} a atteint ${price.toFixed(2)}€ (seuil ${a.type==='up'?'≥':'≤'} ${a.value}€)`,
+    });
+  }
+  // Bandeau visuel dans l'app
+  showAlertBanner(`${a.asset} ${a.type==='up'?'a dépassé':'est descendu sous'} ${a.value}€ — actuellement ${price.toFixed(2)}€`);
+}
+
+function showAlertBanner(msg){
+  let banner=document.getElementById('alert-banner');
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='alert-banner';
+    banner.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:500;background:var(--amber);color:#000;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);max-width:90%;text-align:center;cursor:pointer';
+    banner.onclick=()=>banner.remove();
+    document.body.appendChild(banner);
+  }
+  banner.textContent='🔔 '+msg;
+  clearTimeout(banner._t);
+  banner._t=setTimeout(()=>banner.remove(), 8000);
+}
 
 // ══════════════════════════════════════════════════════
 // DASHBOARD
@@ -1073,19 +1351,6 @@ function renderDash(){
   const totI=Object.values(P).reduce((s,a)=>s+inv(a.holdings),0);
   const g=totC-totI; const gPct=totI>0?g/totI*100:0;
   const m=mon(P);
-
-  // Ticker tape
-  const liveItems=Object.values(P).flatMap(a=>a.holdings.filter(h=>h.marketData));
-  let tape='';
-  if(liveItems.length>0){
-    const items=liveItems.map(h=>`
-      <span class="ticker-item">
-        <span class="ticker-name">${h.name.split(' ').slice(0,2).join(' ')}</span>
-        <span class="ticker-price" style="color:${h.marketData.change>=0?'var(--accent-light)':'var(--danger-light)'}">${eurD(h.marketData.price)}</span>
-        <span class="ticker-chg" style="color:${h.marketData.change>=0?'var(--accent-light)':'var(--danger-light)'}">${sign(h.marketData.change)}${h.marketData.changePercent?.toFixed(2)}%</span>
-      </span>`).join('');
-    tape=`<div class="ticker-bar"><div class="ticker-scroll">${items}${items}</div></div>`;
-  }
 
   let html=`
     <div class="dashboard-grid">
@@ -1113,7 +1378,6 @@ function renderDash(){
         </div>
       </div>
     </div>
-    ${tape}
     <div class="section-header">
       <div class="section-title">Répartition</div>
     </div>
@@ -1138,8 +1402,8 @@ function renderDash(){
             </div>
           </div>
           <div class="acc-right">
-            <div class="acc-value" style="color:${acc.color}">${eur(v)}</div>
-            <div class="acc-gain" style="color:${colorPnl(gain)}">${sign(gain)}${gainPct.toFixed(2)}%</div>
+            <div class="acc-value" id="accval-${acc.id}" style="color:${acc.color}">${eur(v)}</div>
+            <div class="acc-gain" id="accgain-${acc.id}" style="color:${colorPnl(gain)}">${sign(gain)}${gainPct.toFixed(2)}%</div>
             <div class="acc-chevron" id="chev-d-${acc.id}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
@@ -1162,8 +1426,8 @@ function renderDash(){
                   </div>
                 </div>
                 <div class="h-right">
-                  <div class="h-value">${eurD(h.current||0)}</div>
-                  ${h.invested>0?`<div class="h-perf" style="color:${colorPnl(hg)}">${sign(hg)}${hgPct.toFixed(1)}%</div>`:''}
+                  <div class="h-value" id="hval-${acc.id}-${h.id}">${eurD(h.current||0)}</div>
+                  ${h.invested>0?`<div class="h-perf" id="hperf-${acc.id}-${h.id}" style="color:${colorPnl(hg)}">${sign(hg)}${hgPct.toFixed(1)}%</div>`:''}
                   <div class="h-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
                 </div>
               </div>`;
@@ -1192,6 +1456,7 @@ function renderDash(){
     color: acc.color,
   })).filter(d=>d.value>0);
   drawPie(pieData, 'pie-container');
+  restoreOpenAccounts();
 }
 
 function accIcon(id){
@@ -1211,6 +1476,41 @@ function toggleAcc(id){
   const open=el.style.display==='none'||el.style.display==='';
   el.style.display=open?'block':'none';
   if(chev) chev.style.transform=open?'rotate(180deg)':'';
+  // Mémoriser l'état (id du type "d-pea")
+  if(open) openAccounts.add(id); else openAccounts.delete(id);
+}
+
+// Réapplique l'état déplié après un re-render
+function restoreOpenAccounts(){
+  openAccounts.forEach(id=>{
+    const el=document.getElementById(`hold-${id}`);
+    const chev=document.getElementById(`chev-${id}`);
+    if(el){ el.style.display='block'; if(chev) chev.style.transform='rotate(180deg)'; }
+  });
+}
+
+// Mise à jour DOUCE des valeurs du dashboard (sans réécrire le HTML, garde l'état déplié)
+function updateDashValues(){
+  const totC=Object.values(P).reduce((s,a)=>s+tot(a.holdings),0);
+  const totI=Object.values(P).reduce((s,a)=>s+invested(a.holdings),0);
+  const g=totC-totI, gPct=totI>0?g/totI*100:0;
+  // Patrimoine total
+  const hv=document.querySelector('.hero-value'); if(hv) hv.textContent=eur(totC);
+  const hc=document.querySelector('.hero-change .badge'); 
+  if(hc){ hc.className='badge '+(g>=0?'badge-green':'badge-red'); hc.textContent=`${sign(g)}${eur(g)} (${sign(gPct)}${gPct.toFixed(2)}%)`; }
+  // Valeurs par compte + lignes
+  Object.values(P).forEach(acc=>{
+    const v=tot(acc.holdings), i=invested(acc.holdings), gg=v-i, gpct=i>0?gg/i*100:0;
+    const av=document.getElementById(`accval-${acc.id}`); if(av) av.textContent=eur(v);
+    const ag=document.getElementById(`accgain-${acc.id}`);
+    if(ag){ ag.style.color=gg>=0?'var(--accent-light)':'var(--danger-light)'; ag.textContent=`${sign(gg)}${gpct.toFixed(2)}%`; }
+    acc.holdings.forEach(h=>{
+      const hv2=document.getElementById(`hval-${acc.id}-${h.id}`); if(hv2) hv2.textContent=eurD(h.current||0);
+      const hp=document.getElementById(`hperf-${acc.id}-${h.id}`);
+      if(hp){ const hg=(h.current||0)-(h.invested||0), hgp=h.invested>0?hg/h.invested*100:0;
+        hp.style.color=hg>=0?'var(--accent-light)':'var(--danger-light)'; hp.textContent=`${sign(hg)}${hgp.toFixed(1)}%`; }
+    });
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -1348,8 +1648,65 @@ function renderDetail(){
     </div>
   `;
 
+  // Section alertes sur cet actif (seulement si ticker)
+  if(h.ticker){
+    const myAlerts = alerts.filter(a => 
+      a.asset.toLowerCase()===h.name.toLowerCase() || 
+      h.name.toLowerCase().includes(a.asset.toLowerCase())
+    );
+    html+=`
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <div class="card-title">Alertes sur cet actif</div>
+          <button class="btn btn-secondary btn-sm" onclick="toggleDetailAlert()">+ Ajouter</button>
+        </div>
+        <div class="card-body">
+          <div id="detail-alert-form" style="display:none;margin-bottom:16px">
+            <div class="type-row" style="margin-bottom:10px">
+              <button class="type-btn up on" id="dt-up" onclick="setDetailAT('up')">▲ Au-dessus de</button>
+              <button class="type-btn dn" id="dt-dn" onclick="setDetailAT('dn')">▼ En-dessous de</button>
+            </div>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="dt-val" type="number" step="0.01" placeholder="Prix cible (€)" style="flex:1">
+              <button class="btn btn-primary" onclick="addDetailAlert()">Créer</button>
+            </div>
+          </div>
+          ${myAlerts.length>0 ? myAlerts.map(a=>{
+            const isUp=a.type==='up';
+            const col=isUp?'var(--accent-light)':'var(--danger-light)';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:13px;color:${col}">${isUp?'▲ Au-dessus de':'▼ En-dessous de'} ${a.value} €</span>
+              <button class="alert-del" onclick="delAlert(${a.id});showDetail('${acc.id}','${h.id}')" style="color:var(--text-4)">✕</button>
+            </div>`;
+          }).join('') : '<div style="font-size:13px;color:var(--text-3);text-align:center;padding:8px">Aucune alerte sur cet actif</div>'}
+        </div>
+      </div>
+    `;
+  }
+
   document.getElementById('page-detail').innerHTML=html;
   if(h.ticker) loadChart(h.ticker, period, acc.color);
+}
+
+// Alertes depuis la page détail
+let detailAT='up';
+function toggleDetailAlert(){
+  const f=document.getElementById('detail-alert-form');
+  if(f) f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+function setDetailAT(t){
+  detailAT=t;
+  document.getElementById('dt-up')?.classList.toggle('on',t==='up');
+  document.getElementById('dt-dn')?.classList.toggle('on',t==='dn');
+}
+function addDetailAlert(){
+  const val=parseFloat(document.getElementById('dt-val')?.value);
+  if(isNaN(val)||val<=0){alert('Entre un prix valide');return;}
+  const newAlert={id:Date.now(),asset:detail.h.name,type:detailAT,value:val,active:true};
+  alerts.push(newAlert);
+  saveAlertToSupabase(newAlert);
+  localStorage.setItem('al',JSON.stringify(alerts));
+  showDetail(detail.acc.id, detail.h.id); // refresh
 }
 
 function updateDetailPrice(){
@@ -1393,17 +1750,28 @@ function drawChart(data, color){
   const cf=document.getElementById('chart-footer');
   if(!ca) return;
 
-  const W=ca.offsetWidth||340, H=220;
-  const P2={t:16,b:28,l:4,r:62};
+  const W=ca.offsetWidth||340, H=200;
+  const P2={t:14,b:22,l:4,r:8};
   const prices=data.map(d=>d.price);
-  const minP=Math.min(...prices), maxP=Math.max(...prices), rng=maxP-minP||1;
+
+  // Seuils d'alerte pour cet actif
+  const assetAlerts = detail ? alerts.filter(a => 
+    a.active && (a.asset.toLowerCase()===detail.h.name.toLowerCase() || 
+    detail.h.name.toLowerCase().includes(a.asset.toLowerCase()))
+  ) : [];
+  const alertValues = assetAlerts.map(a=>a.value);
+
+  // min/max incluant les seuils d'alerte pour qu'ils soient visibles
+  let minP=Math.min(...prices, ...alertValues);
+  let maxP=Math.max(...prices, ...alertValues);
+  const rng=maxP-minP||1;
   const isUp=prices[prices.length-1]>=prices[0];
   const lc=isUp?'#22C55E':'#EF4444';
   const x=i=>P2.l+(i/(data.length-1))*(W-P2.l-P2.r);
   const y=p=>P2.t+(H-P2.t-P2.b)-((p-minP)/rng)*(H-P2.t-P2.b);
   const line=data.map((d,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(d.price).toFixed(1)}`).join(' ');
   const fill=`${line} L${x(data.length-1).toFixed(1)},${(H-P2.b).toFixed(1)} L${P2.l},${(H-P2.b).toFixed(1)} Z`;
-  const yl=[minP, minP+rng*0.25, minP+rng*0.5, minP+rng*0.75, maxP];
+  const yl=[minP, minP+rng*0.5, maxP];
   const gridColor=isDark?'#27272A':'#E4E4E7';
   const labelColor=isDark?'#71717A':'#A1A1AA';
 
@@ -1416,16 +1784,27 @@ function drawChart(data, color){
       <clipPath id="clip"><rect x="${P2.l}" y="${P2.t}" width="${W-P2.l-P2.r}" height="${H-P2.t-P2.b}"/></clipPath>
     </defs>`;
 
-  // Grid
-  yl.forEach(v=>{
+  // Grid — lignes pleine largeur + labels discrets posés sur la ligne à gauche
+  yl.forEach((v,i)=>{
     const yy=y(v);
-    svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="3,4"/>
-    <text x="${W-P2.r+6}" y="${(yy+4).toFixed(1)}" fill="${labelColor}" font-size="9" font-family="monospace">${v.toFixed(2)}</text>`;
+    svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${gridColor}" stroke-width="1" stroke-dasharray="3,4"/>`;
+    // label au-dessus de la ligne, aligné à gauche, sauf la ligne du bas (évite chevauchement axe X)
+    const ty = i===0 ? yy-3 : yy-3;
+    svg+=`<text x="${P2.l+2}" y="${ty.toFixed(1)}" fill="${labelColor}" font-size="9" font-family="monospace" opacity="0.7">${v.toFixed(2)}</text>`;
   });
 
   // Area + line
   svg+=`<path d="${fill}" fill="url(#cg)" clip-path="url(#clip)"/>
     <path d="${line}" stroke="${lc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#clip)"/>`;
+
+  // Lignes de seuil d'alerte
+  assetAlerts.forEach(a=>{
+    const ay=y(a.value);
+    const acol = a.type==='up' ? '#16A34A' : '#DC2626';
+    svg+=`<line x1="${P2.l}" y1="${ay.toFixed(1)}" x2="${W-P2.r}" y2="${ay.toFixed(1)}" stroke="${acol}" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.8"/>
+    <rect x="${P2.l}" y="${(ay-8).toFixed(1)}" width="46" height="16" rx="3" fill="${acol}"/>
+    <text x="${P2.l+4}" y="${(ay+3.5).toFixed(1)}" fill="#fff" font-size="9" font-weight="700" font-family="monospace">${a.type==='up'?'▲':'▼'} ${a.value}</text>`;
+  });
 
   // Crosshair vertical (hidden by default)
   svg+=`<line id="tt-vline" x1="0" y1="${P2.t}" x2="0" y2="${H-P2.b}" stroke="${labelColor}" stroke-width="1" stroke-dasharray="4,3" display="none"/>`;
@@ -1656,8 +2035,8 @@ function updateSim(){
   `;
   document.getElementById('page-simulation').innerHTML=html;
 }
-function adjM(d){simM=Math.max(50,Math.min(1000,simM+d));updateSim();}
-function adjY(d){simY=Math.max(1,Math.min(30,simY+d));updateSim();}
+function adjM(d){simM=Math.max(50,Math.min(1000,simM+d));updateSim();saveSimToSupabase();}
+function adjY(d){simY=Math.max(1,Math.min(30,simY+d));updateSim();saveSimToSupabase();}
 
 // ══════════════════════════════════════════════════════
 // ALERTES
@@ -1681,12 +2060,23 @@ function renderAlerts(){
     </div>
     <div class="alert-form-card" id="af">
       <div style="font-size:13px;font-weight:700;margin-bottom:16px">Nouvelle alerte</div>
-      <input class="input" id="af-asset" placeholder="Actif (ex: Xiaomi)" style="margin-bottom:10px">
+      <div class="modal-label">Actif</div>
+      <input class="input" id="af-asset" placeholder="Choisis un actif" list="alert-assets" style="margin-bottom:10px">
+      <datalist id="alert-assets">
+        ${Object.values(P).flatMap(a=>a.holdings).filter(h=>h.ticker).map(h=>`<option value="${h.name}">`).join('')}
+      </datalist>
       <div class="type-row">
         <button class="type-btn up on" id="af-up" onclick="setAT('up')">▲ Au-dessus de</button>
         <button class="type-btn dn" id="af-dn" onclick="setAT('dn')">▼ En-dessous de</button>
       </div>
-      <input class="input" id="af-val" type="number" placeholder="Prix cible en €" style="margin-bottom:12px">
+      <div class="modal-label">Mode de seuil</div>
+      <div class="type-row" style="margin-bottom:10px">
+        <button class="type-btn on" id="afm-price" onclick="setAlertMode('price')" style="border-color:var(--blue);color:var(--blue-light)">€ Prix fixe</button>
+        <button class="type-btn" id="afm-pct" onclick="setAlertMode('pct')" style="border-color:var(--border)">% Variation</button>
+      </div>
+      <div class="modal-label" id="af-val-label">Prix cible (€)</div>
+      <input class="input" id="af-val" type="number" step="0.01" placeholder="Ex: 90.00" style="margin-bottom:6px" oninput="updateAlertPreview()">
+      <div id="af-preview" style="font-size:12px;color:var(--text-3);margin-bottom:12px"></div>
       <button class="btn btn-primary btn-full" onclick="addAlert()">Créer l'alerte</button>
     </div>
     <div class="alerts-list">
@@ -1697,18 +2087,28 @@ function renderAlerts(){
   } else {
     alerts.forEach(a=>{
       const isUp=a.type==='up';
-      const c=isUp?'var(--accent)':'var(--danger)';
+      const col=isUp?'var(--accent)':'var(--danger)';
       const cl=isUp?'var(--accent-light)':'var(--danger-light)';
-      html+=`<div class="alert-card ${a.active?'':'off'}" style="border-color:${a.active?(isUp?'rgba(22,163,74,.3)':'rgba(220,38,38,.3)'):'var(--border)'}">
+      const price=getAssetPrice(a.asset);
+      const hit = price!=null && (isUp ? price>=a.value : price<=a.value);
+      let statusTxt='';
+      if(price!=null){
+        const dist=((price-a.value)/a.value*100);
+        if(hit) statusTxt=`<span style="color:var(--amber-light);font-weight:700">⚡ Atteint ! (${price.toFixed(2)}€)</span>`;
+        else statusTxt=`<span style="color:var(--text-3)">Actuel: ${price.toFixed(2)}€ (${sign(dist)}${dist.toFixed(1)}%)</span>`;
+      } else {
+        statusTxt=`<span style="color:var(--text-4)">Prix indisponible</span>`;
+      }
+      html+=`<div class="alert-card ${a.active?'':'off'}" style="border-color:${hit?'var(--amber)':(a.active?(isUp?'rgba(22,163,74,.3)':'rgba(220,38,38,.3)'):'var(--border)')}">
         <div class="alert-left">
-          <div class="alert-icon-box" style="background:${isUp?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)'}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.5">
+          <div class="alert-icon-box" style="background:${hit?'rgba(217,119,6,.15)':(isUp?'rgba(22,163,74,.1)':'rgba(220,38,38,.1)')}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${hit?'var(--amber)':col}" stroke-width="2.5">
               ${isUp?'<polyline points="18 15 12 9 6 15"/>':'<polyline points="6 9 12 15 18 9"/>'}
             </svg>
           </div>
           <div>
             <div class="alert-asset">${a.asset}</div>
-            <div class="alert-cond" style="color:${cl}">${isUp?'Au-dessus de':'En-dessous de'} ${a.value} €</div>
+            <div class="alert-cond" style="color:${cl}">${isUp?'≥':'≤'} ${a.value} €${a.pctInfo?` <span style="color:var(--blue-light)">(${a.type==='up'?'+':'-'}${a.pctInfo.pct}%)</span>`:''} · <span style="font-family:var(--font)">${statusTxt}</span></div>
           </div>
         </div>
         <div class="alert-actions">
@@ -1730,23 +2130,114 @@ function setAT(t){
   newAT=t;
   document.getElementById('af-up')?.classList.toggle('on',t==='up');
   document.getElementById('af-dn')?.classList.toggle('on',t==='dn');
+  updateAlertPreview();
+}
+let alertMode='price';
+function setAlertMode(m){
+  alertMode=m;
+  document.getElementById('afm-price')?.classList.toggle('on',m==='price');
+  document.getElementById('afm-pct')?.classList.toggle('on',m==='pct');
+  document.getElementById('afm-price').style.borderColor = m==='price'?'var(--blue)':'var(--border)';
+  document.getElementById('afm-price').style.color = m==='price'?'var(--blue-light)':'var(--text-2)';
+  document.getElementById('afm-pct').style.borderColor = m==='pct'?'var(--blue)':'var(--border)';
+  document.getElementById('afm-pct').style.color = m==='pct'?'var(--blue-light)':'var(--text-2)';
+  const lbl=document.getElementById('af-val-label');
+  const inp=document.getElementById('af-val');
+  if(m==='pct'){ lbl.textContent='Variation (%) — ex: 5 pour +5%'; inp.placeholder='Ex: 5'; }
+  else { lbl.textContent='Prix cible (€)'; inp.placeholder='Ex: 90.00'; }
+  updateAlertPreview();
+}
+function updateAlertPreview(){
+  const prev=document.getElementById('af-preview');
+  if(!prev) return;
+  const asset=document.getElementById('af-asset')?.value?.trim();
+  const val=parseFloat(document.getElementById('af-val')?.value);
+  if(!asset||isNaN(val)){ prev.textContent=''; return; }
+  const cur=getAssetPrice(asset);
+  if(cur==null){ prev.innerHTML='<span style="color:var(--text-4)">Prix actuel indisponible</span>'; return; }
+  if(alertMode==='pct'){
+    const target = newAT==='up' ? cur*(1+val/100) : cur*(1-val/100);
+    prev.innerHTML=`Prix actuel: <b>${cur.toFixed(2)}€</b> → seuil calculé: <b style="color:var(--blue-light)">${target.toFixed(2)}€</b>`;
+  } else {
+    const dist=((val-cur)/cur*100);
+    prev.innerHTML=`Prix actuel: <b>${cur.toFixed(2)}€</b> (${sign(dist)}${dist.toFixed(1)}% du seuil)`;
+  }
 }
 function addAlert(){
   const asset=document.getElementById('af-asset')?.value?.trim();
-  const val=parseFloat(document.getElementById('af-val')?.value);
-  if(!asset||isNaN(val)||val<=0){alert('Remplis tous les champs');return;}
-  alerts.push({id:Date.now(),asset,type:newAT,value:val,active:true});
+  let val=parseFloat(document.getElementById('af-val')?.value);
+  if(!asset||isNaN(val)){alert('Remplis tous les champs');return;}
+  // Mode pourcentage : convertir en prix cible absolu
+  let pctInfo=null;
+  if(alertMode==='pct'){
+    const cur=getAssetPrice(asset);
+    if(cur==null){alert('Prix actuel indisponible pour cet actif');return;}
+    pctInfo={base:cur, pct:val};
+    val = newAT==='up' ? cur*(1+val/100) : cur*(1-val/100);
+    val = +val.toFixed(2);
+  }
+  if(val<=0){alert('Valeur invalide');return;}
+  const newAlert={id:Date.now(),asset,type:newAT,value:val,active:true,triggered:false,pctInfo};
+  alerts.push(newAlert);
+  saveAlertToSupabase(newAlert);
   localStorage.setItem('al',JSON.stringify(alerts));
   renderAlerts();
 }
-function toggleA(id){alerts=alerts.map(a=>a.id===id?{...a,active:!a.active}:a);localStorage.setItem('al',JSON.stringify(alerts));renderAlerts();}
-function delAlert(id){if(!confirm('Supprimer ?'))return;alerts=alerts.filter(a=>a.id!==id);localStorage.setItem('al',JSON.stringify(alerts));renderAlerts();}
+function toggleA(id){
+  alerts=alerts.map(a=>{
+    if(a.id===id){const u={...a,active:!a.active};saveAlertToSupabase(u);return u;}
+    return a;
+  });
+  localStorage.setItem('al',JSON.stringify(alerts));renderAlerts();
+}
+function delAlert(id){
+  if(!confirm('Supprimer ?'))return;
+  const a=alerts.find(x=>x.id===id);
+  if(a?._dbId) deleteAlertFromSupabase(a._dbId);
+  alerts=alerts.filter(x=>x.id!==id);
+  localStorage.setItem('al',JSON.stringify(alerts));renderAlerts();
+}
 
 // ══════════════════════════════════════════════════════
 // EDIT
 // ══════════════════════════════════════════════════════
+// Remet invested = current pour toutes les lignes (jour 0)
+async function resetToToday(){
+  if(!confirm('Remettre tous les montants investis à la valeur actuelle ? Le gain repartira à 0% pour toutes tes positions.')) return;
+  showAlertBanner('Récupération des cours en cours...');
+  // D'abord récupérer les cours live à jour
+  await fetchLive();
+  // Puis aligner invested sur la valeur actuelle
+  Object.values(P).forEach(acc=>{
+    acc.holdings.forEach(h=>{
+      h.invested = h.current || 0;
+      if(h.qty && h.qty>0) h.pru = +(h.current/h.qty).toFixed(4);
+    });
+  });
+  saveP();
+  await resyncSupabase();
+  renderEdit();
+  showAlertBanner('Portefeuille réinitialisé — gain à 0% pour aujourd\'hui');
+}
+
+// Efface tout le portfolio Supabase et réécrit proprement
+async function resyncSupabase(){
+  try {
+    await fetch(`${SB_URL}/rest/v1/portfolio?account_id=neq.__none__`, {
+      method: 'DELETE', headers: SB.headers,
+    });
+    await saveToSupabase();
+  } catch(e) { console.warn('resync error', e); }
+}
+
 function renderEdit(){
-  let html=`<div class="page-header"><div class="page-title">Modifier</div><div class="page-subtitle">Gérez vos lignes de portefeuille</div></div>`;
+  let html=`<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div><div class="page-title">Modifier</div><div class="page-subtitle">Gérez vos lignes de portefeuille</div></div>
+    <button class="btn btn-secondary btn-sm" onclick="resetToToday()" style="border-color:var(--amber);color:var(--amber-light)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Réinitialiser à aujourd'hui
+    </button>
+  </div>`;
   Object.values(P).forEach(acc=>{
     html+=`<div class="edit-section">
       <div class="edit-acc-header">
@@ -1791,9 +2282,10 @@ function openEdit(accId, hId){
   document.getElementById('f-name').value=h.name||'';
   document.getElementById('f-isin').value=h.isin||'';
   document.getElementById('f-ticker').value=h.ticker||'';
+  document.getElementById('f-qty').value=h.qty||'';
+  document.getElementById('f-pru').value=h.pru||(h.qty?(h.invested/h.qty).toFixed(2):'')||'';
   document.getElementById('f-invested').value=h.invested||'';
   document.getElementById('f-current').value=h.current||'';
-  document.getElementById('f-qty').value=h.qty||'';
   document.getElementById('f-monthly').value=h.monthly||0;
   pickType(h.type||'ETF');
   document.getElementById('modal').classList.add('open');
@@ -1802,7 +2294,7 @@ function openEdit(accId, hId){
 function openAdd(accId){
   editAccId=accId; editH=null;
   document.getElementById('modal-title').textContent='Ajouter une ligne';
-  ['f-name','f-isin','f-ticker','f-invested','f-current','f-qty'].forEach(id=>document.getElementById(id).value='');
+  ['f-name','f-isin','f-ticker','f-invested','f-current','f-qty','f-pru'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-monthly').value='0';
   pickType('ETF');
   document.getElementById('modal').classList.add('open');
@@ -1815,19 +2307,68 @@ function pickType(t){
   document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.textContent===t));
 }
 
+// Aperçu auto du montant investi = qty × PRU
+function updateInvestedPreview(){
+  const qty=parseFloat(document.getElementById('f-qty')?.value)||0;
+  const pru=parseFloat(document.getElementById('f-pru')?.value)||0;
+  if(qty>0 && pru>0){
+    document.getElementById('f-invested').value=(qty*pru).toFixed(2);
+  }
+}
+
 function saveHolding(){
   const name=document.getElementById('f-name').value.trim();
   if(!name){alert('Le nom est obligatoire');return;}
+  const oldH = editH ? P[editAccId]?.holdings.find(x=>x.id===editH.id) : null;
+
+  const qty = document.getElementById('f-qty').value ? parseFloat(document.getElementById('f-qty').value) : null;
+  const pru = parseFloat(document.getElementById('f-pru').value)||0;
+  let invested = parseFloat(document.getElementById('f-invested').value)||0;
+  // Si PRU et qty fournis mais pas de montant investi explicite, calculer
+  if(qty && pru && !invested) invested = qty*pru;
+
+  let current = parseFloat(document.getElementById('f-current').value)||0;
+  // Si pas de valeur actuelle saisie : si ticker -> sera calculé par le cours live, sinon = investi
+  const ticker = document.getElementById('f-ticker').value.trim()||null;
+  if(!current){
+    if(ticker && oldH?.marketData?.price && qty) current = +(qty*oldH.marketData.price).toFixed(2);
+    else current = invested;
+  }
+
   const h={
-    id:editH?.id||genId(), name,
+    id:editH?.id||genId(),
+    _dbId:editH?._dbId||null,
+    name,
     isin:document.getElementById('f-isin').value.trim()||'—',
-    ticker:document.getElementById('f-ticker').value.trim()||null,
+    ticker,
     type:curType,
-    invested:parseFloat(document.getElementById('f-invested').value)||0,
-    current:parseFloat(document.getElementById('f-current').value)||0,
-    qty:document.getElementById('f-qty').value?parseFloat(document.getElementById('f-qty').value):null,
+    invested,
+    current,
+    qty,
+    pru: pru || (qty ? +(invested/qty).toFixed(4) : null),
     monthly:parseFloat(document.getElementById('f-monthly').value)||0,
   };
+  if(oldH?.marketData) h.marketData = oldH.marketData;
+
+  // Enregistrer l'ordre correspondant
+  if(!editH) {
+    saveOrder({
+      accountId: editAccId, name: h.name, ticker: h.ticker,
+      type: 'ACHAT', qty: h.qty||1, price: h.pru||h.current,
+      total: h.invested||h.current, date: new Date().toISOString(),
+    });
+  } else if(oldH && h.qty && oldH.qty && h.qty !== oldH.qty) {
+    const diff = h.qty - oldH.qty;
+    const prixUnit = h.pru || (h.qty ? h.invested/h.qty : 0);
+    saveOrder({
+      accountId: editAccId, name: h.name, ticker: h.ticker,
+      type: diff > 0 ? 'ACHAT' : 'VENTE',
+      qty: Math.abs(diff), price: prixUnit,
+      total: Math.abs(diff) * prixUnit,
+      date: new Date().toISOString(),
+    });
+  }
+
   const acc=P[editAccId];
   const idx=acc.holdings.findIndex(x=>x.id===h.id);
   if(idx>=0)acc.holdings[idx]=h; else acc.holdings.push(h);
@@ -1836,47 +2377,319 @@ function saveHolding(){
 
 function delH(accId,hId){
   if(!confirm('Supprimer cette ligne ?'))return;
-  P[accId].holdings=P[accId].holdings.filter(h=>h.id!==hId);
+  const h = P[accId].holdings.find(x=>x.id===hId);
+  deleteFromSupabase(accId, hId);
+  P[accId].holdings=P[accId].holdings.filter(x=>x.id!==hId);
   saveP(); renderEdit();
 }
 
 // ══════════════════════════════════════════════════════
+// ── HISTORIQUE ────────────────────────────────────────
+// ── FORMULAIRE ORDRE ──────────────────────────────────
+let showOrderForm = false;
+let orderType = 'ACHAT';
+
+function toggleOrderForm() {
+  showOrderForm = !showOrderForm;
+  const f = document.getElementById('order-form');
+  if(f) f.style.display = showOrderForm ? 'block' : 'none';
+  const btn = document.getElementById('order-form-btn');
+  if(btn) btn.textContent = showOrderForm ? '✕ Annuler' : '+ Nouvel ordre';
+}
+
+function setOrderType(t) {
+  orderType = t;
+  document.getElementById('ot-achat')?.classList.toggle('active', t==='ACHAT');
+  document.getElementById('ot-vente')?.classList.toggle('active', t==='VENTE');
+  document.getElementById('ot-dividende')?.classList.toggle('active', t==='DIVIDENDE');
+}
+
+function calcOrderTotal() {
+  const qty = parseFloat(document.getElementById('o-qty')?.value)||0;
+  const price = parseFloat(document.getElementById('o-price')?.value)||0;
+  const total = qty * price;
+  const el = document.getElementById('o-total-preview');
+  if(el) el.textContent = total > 0 ? eurD(total) : '—';
+}
+
+async function submitOrder() {
+  const name = document.getElementById('o-name')?.value?.trim();
+  const qty = parseFloat(document.getElementById('o-qty')?.value);
+  const price = parseFloat(document.getElementById('o-price')?.value);
+  const accId = document.getElementById('o-account')?.value;
+  const date = document.getElementById('o-date')?.value;
+  const notes = document.getElementById('o-notes')?.value?.trim();
+  const ticker = document.getElementById('o-ticker')?.value?.trim();
+
+  if(!name || isNaN(qty) || qty<=0 || isNaN(price) || price<=0) {
+    alert('Remplis les champs obligatoires : nom, quantité, prix');
+    return;
+  }
+
+  const order = {
+    accountId: accId||'pea', name, ticker: ticker||null,
+    type: orderType, qty, price, total: qty*price,
+    date: date ? new Date(date).toISOString() : new Date().toISOString(),
+    notes: notes||null,
+  };
+
+  await saveOrder(order);
+  showOrderForm = false;
+  renderHistorique();
+}
+
+async function deleteOrder(id) {
+  if(!confirm('Supprimer cet ordre ?')) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/orders?id=eq.${id}`, {
+      method: 'DELETE', headers: SB.headers,
+    });
+    renderHistorique();
+  } catch(e) { alert('Erreur suppression'); }
+}
+
+async function renderHistorique() {
+  const pg = document.getElementById('page-historique');
+  if(!pg) return;
+  pg.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3)">Chargement...</div>`;
+
+  const orders = await loadOrders();
+  const accMap = {pea:'PEA',cto:'CTO',av:'AV',pee:'PEE'};
+  const today = new Date().toISOString().slice(0,10);
+
+  // Form HTML
+  const formHtml = `
+    <div id="order-form" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:16px">Nouvel ordre</div>
+      
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button id="ot-achat" class="type-btn up on" onclick="setOrderType('ACHAT')" style="flex:1">▲ Achat</button>
+        <button id="ot-vente" class="type-btn dn" onclick="setOrderType('VENTE')" style="flex:1">▼ Vente</button>
+        <button id="ot-dividende" class="type-btn" onclick="setOrderType('DIVIDENDE')" style="flex:1;border-color:var(--amber);color:var(--amber-light)" id="ot-div">★ Dividende</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div class="modal-label">Compte</div>
+          <select id="o-account" class="input" style="appearance:auto">
+            <option value="pea">PEA</option>
+            <option value="cto">CTO</option>
+            <option value="av">Assurance Vie</option>
+            <option value="pee">PEE</option>
+          </select>
+        </div>
+        <div>
+          <div class="modal-label">Date</div>
+          <input id="o-date" class="input" type="date" value="${today}">
+        </div>
+      </div>
+
+      <div class="modal-label">Nom de l'actif *</div>
+      <input id="o-name" class="input" placeholder="Ex: Nasdaq 100" style="margin-bottom:10px"
+        list="holdings-list">
+      <datalist id="holdings-list">
+        ${Object.values(P).flatMap(a=>a.holdings).map(h=>`<option value="${h.name}">`).join('')}
+      </datalist>
+
+      <div class="modal-label">Ticker</div>
+      <input id="o-ticker" class="input" placeholder="Ex: PUST.PA" style="margin-bottom:10px">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div class="modal-label">Quantité *</div>
+          <input id="o-qty" class="input" type="number" step="0.0001" placeholder="Ex: 2" oninput="calcOrderTotal()">
+        </div>
+        <div>
+          <div class="modal-label">Prix unitaire (€) *</div>
+          <input id="o-price" class="input" type="number" step="0.01" placeholder="Ex: 86.07" oninput="calcOrderTotal()">
+        </div>
+      </div>
+
+      <div style="background:var(--bg-3);border-radius:var(--radius);padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text-2)">Total</span>
+        <span id="o-total-preview" style="font-size:16px;font-weight:800;font-family:var(--font-mono)">—</span>
+      </div>
+
+      <div class="modal-label">Notes</div>
+      <input id="o-notes" class="input" placeholder="Optionnel..." style="margin-bottom:14px">
+
+      <button class="btn btn-primary btn-full" onclick="submitOrder()">✓ Enregistrer l'ordre</button>
+    </div>
+  `;
+
+  if(!orders || orders.length === 0) {
+    pg.innerHTML = `<div style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div><div class="page-title">Historique</div><div class="page-subtitle">Tes ordres d'achat et vente</div></div>
+        <button id="order-form-btn" class="btn btn-primary btn-sm" onclick="toggleOrderForm()">+ Nouvel ordre</button>
+      </div>
+      ${formHtml}
+      <div class="empty">
+        <div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="empty-text">Aucun ordre enregistré</div>
+        <div style="margin-top:8px;font-size:12px">Utilise le bouton + pour ajouter ton premier ordre</div>
+      </div>
+    </div>`;
+    if(showOrderForm) { document.getElementById('order-form').style.display='block'; }
+    setOrderType(orderType);
+    return;
+  }
+
+  const grouped = {};
+  orders.forEach(o => {
+    const date = new Date(o.date).toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+    if(!grouped[date]) grouped[date] = [];
+    grouped[date].push(o);
+  });
+
+  let html = `<div style="padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <div><div class="page-title">Historique</div><div class="page-subtitle">${orders.length} ordre${orders.length>1?'s':''}</div></div>
+      <button id="order-form-btn" class="btn btn-primary btn-sm" onclick="toggleOrderForm()">+ Nouvel ordre</button>
+    </div>
+    ${formHtml}`;
+
+  Object.entries(grouped).forEach(([date, ords]) => {
+    html += `<div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">${date}</div>`;
+    ords.forEach(o => {
+      const isAchat = o.type === 'ACHAT';
+      const color = isAchat ? 'var(--accent)' : 'var(--danger)';
+      const accMap = {pea:'PEA',cto:'CTO',av:'AV',pee:'PEE'};
+      html += `<div class="card" style="margin-bottom:10px;padding:14px 18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:10px;background:${color}18;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5">
+                ${isAchat ? '<polyline points="18 15 12 9 6 15"/>' : '<polyline points="6 9 12 15 18 9"/>'}
+              </svg>
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:700">${o.holding_name}</div>
+              <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
+                <span class="badge" style="background:${color}18;color:${color};font-size:10px">${o.type}</span>
+                ${o.ticker ? `<span class="badge badge-neutral" style="font-size:10px;font-family:var(--font-mono)">${o.ticker}</span>` : ''}
+                <span class="badge badge-neutral" style="font-size:10px">${accMap[o.account_id]||o.account_id}</span>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <div style="font-size:15px;font-weight:800;font-family:var(--font-mono);color:${color}">${o.type==='VENTE'?'-':'+'}${eurD(parseFloat(o.total))}</div>
+            <div style="font-size:11px;color:var(--text-3)">${parseFloat(o.quantity).toFixed(4)} × ${eurD(parseFloat(o.price))}</div>
+            <button onclick="deleteOrder('${o.id}')" style="background:none;border:none;color:var(--text-4);font-size:12px;cursor:pointer;margin-top:2px">🗑 Supprimer</button>
+          </div>
+        </div>
+        ${o.notes ? `<div style="margin-top:10px;font-size:12px;color:var(--text-3);padding-top:10px;border-top:1px solid var(--border)">${o.notes}</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  pg.innerHTML = html;
+  if(showOrderForm) { document.getElementById('order-form').style.display='block'; }
+  setOrderType(orderType);
+}
+
 // INIT
 // ══════════════════════════════════════════════════════
 applyTheme();
-renderDash();
-startRefresh();
+
+// Reset d'urgence : ajoute ?reset=1 à l'URL pour repartir des données par défaut
+if(new URLSearchParams(location.search).get('reset')==='1'){
+  localStorage.clear();
+  // Efface aussi Supabase puis recharge proprement
+  (async()=>{
+    try{
+      await fetch(`${SB_URL}/rest/v1/portfolio?account_id=neq.__x__`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+    }catch(e){}
+    P = JSON.parse(JSON.stringify(DEFAULT));
+    await saveToSupabase();
+    location.href = location.pathname; // recharge sans le param
+  })();
+}
+
+// Demander la permission de notification (pour les alertes)
+if('Notification' in window && Notification.permission==='default'){
+  setTimeout(()=>Notification.requestPermission(), 3000);
+}
+
+// Loader pendant sync Supabase
+document.getElementById('content').innerHTML = `
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;gap:16px">
+    <div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite"></div>
+    <div style="color:var(--text-3);font-size:14px">Synchronisation...</div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>`;
+
+(async () => {
+  const sbPortfolio = await loadFromSupabase();
+  if(sbPortfolio && Object.keys(sbPortfolio).length > 0) {
+    P = sbPortfolio;
+    localStorage.setItem('pf', JSON.stringify(P));
+  }
+
+  const sbAlerts = await loadAlertsFromSupabase();
+  if(sbAlerts && sbAlerts.length > 0) {
+    alerts = sbAlerts;
+    localStorage.setItem('al', JSON.stringify(alerts));
+  }
+
+  const sbSim = await loadSimFromSupabase();
+  if(sbSim) { simM = parseFloat(sbSim.monthly); simY = parseInt(sbSim.years); }
+  else simM = mon(P);
+
+  // Restaurer le contenu (TOUTES les pages dont historique)
+  document.getElementById('content').innerHTML = `
+    <div class="page active" id="page-dashboard"></div>
+    <div class="page" id="page-portefeuille"></div>
+    <div class="page" id="page-detail"></div>
+    <div class="page" id="page-simulation"></div>
+    <div class="page" id="page-alertes"></div>
+    <div class="page" id="page-edit"></div>
+    <div class="page" id="page-historique"></div>
+  `;
+
+  renderDash();
+  startRefresh();
+})();
 </script>
 <script>
-// ── SERVICE WORKER ──────────────────────────────────────
+// ─── PWA : Service Worker ───
 if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(r => console.log('SW registered'))
-      .catch(e => console.log('SW error:', e));
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.log('SW:',e));
   });
 }
-// ── INSTALL PROMPT ──────────────────────────────────────
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', e => {
+// ─── PWA : Prompt d'installation ───
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
   e.preventDefault();
-  deferredPrompt = e;
-  // Afficher bouton installer si pas déjà installé
-  const btn = document.getElementById('install-btn');
-  if(btn) btn.style.display = 'flex';
+  deferredPrompt=e;
+  showInstallButton();
 });
-function installApp(){
-  if(!deferredPrompt) return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(() => {
-    deferredPrompt = null;
-    const btn = document.getElementById('install-btn');
-    if(btn) btn.style.display = 'none';
-  });
+function showInstallButton(){
+  if(document.getElementById('pwa-install-btn')) return;
+  const btn=document.createElement('button');
+  btn.id='pwa-install-btn';
+  btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Installer l\'app';
+  btn.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;background:var(--accent);color:#fff;border:none;padding:12px 24px;border-radius:24px;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer;font-family:inherit';
+  btn.onclick=async()=>{
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const {outcome}=await deferredPrompt.userChoice;
+    deferredPrompt=null;
+    btn.remove();
+  };
+  document.body.appendChild(btn);
 }
-window.addEventListener('appinstalled', () => {
-  const btn = document.getElementById('install-btn');
-  if(btn) btn.style.display = 'none';
+// Si déjà installée, masquer le bouton
+window.addEventListener('appinstalled', ()=>{
+  document.getElementById('pwa-install-btn')?.remove();
+  // Demander permission notifications une fois installée
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
 });
 </script>
 </body>
