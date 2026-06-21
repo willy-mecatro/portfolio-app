@@ -326,6 +326,27 @@ a { text-decoration: none; }
 .live-dot.error { background: var(--danger); box-shadow: 0 0 6px var(--danger); animation: none; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
+/* THEME SWITCH (mobile) */
+.theme-switch { background:none; border:none; padding:0; cursor:pointer; }
+.theme-switch-track {
+  display:flex; align-items:center; width:52px; height:28px;
+  background:var(--bg-4); border:1px solid var(--border-2);
+  border-radius:20px; padding:2px; transition:background var(--transition);
+  position:relative;
+}
+[data-theme="dark"] .theme-switch-track { background:#27272A; }
+.theme-switch-thumb {
+  width:22px; height:22px; border-radius:50%;
+  background:var(--bg-2); box-shadow:0 1px 3px rgba(0,0,0,.3);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform var(--transition); color:var(--amber);
+}
+[data-theme="dark"] .theme-switch-thumb { transform:translateX(24px); color:var(--blue-light); }
+.theme-switch-thumb .ts-sun { display:block; }
+.theme-switch-thumb .ts-moon { display:none; }
+[data-theme="dark"] .theme-switch-thumb .ts-sun { display:none; }
+[data-theme="dark"] .theme-switch-thumb .ts-moon { display:block; }
+
 /* TOGGLE SWITCH */
 .toggle {
   width: 40px; height: 22px; border-radius: 11px;
@@ -786,8 +807,13 @@ a { text-decoration: none; }
         <div class="live-badge" style="padding:3px 8px">
           <div class="live-dot" id="live-dot-m"></div>
         </div>
-        <button class="icon-btn" onclick="toggleTheme()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <button class="theme-switch" id="theme-switch-m" onclick="toggleTheme()" title="Changer le thème" role="switch">
+          <span class="theme-switch-track">
+            <span class="theme-switch-thumb">
+              <svg class="ts-sun" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+              <svg class="ts-moon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            </span>
+          </span>
         </button>
       </div>
     </div>
@@ -1160,6 +1186,39 @@ async function loadSimFromSupabase() {
   } catch(e) { return null; }
 }
 
+// ── SNAPSHOTS : historique du patrimoine ──────────────
+// Enregistre la valeur totale du jour (1 par jour max)
+async function saveSnapshot(){
+  try {
+    const totalCur = Object.values(P).reduce((s,a)=>s+tot(a.holdings),0);
+    const totalInv = Object.values(P).reduce((s,a)=>s+invested(a.holdings),0);
+    const perAcc = {};
+    Object.values(P).forEach(a=>{ perAcc[a.id]=+tot(a.holdings).toFixed(2); });
+    const today = new Date().toISOString().slice(0,10);
+    // Vérifier s'il existe déjà un snapshot aujourd'hui
+    const existing = await SB.get('snapshots', `day=eq.${today}&limit=1`);
+    const payload = {
+      day: today,
+      total_value: +totalCur.toFixed(2),
+      total_invested: +totalInv.toFixed(2),
+      per_account: JSON.stringify(perAcc),
+      created_at: new Date().toISOString(),
+    };
+    if(existing && existing.length>0){
+      await SB.update('snapshots', existing[0].id, payload);
+    } else {
+      await SB.insert('snapshots', payload);
+    }
+  } catch(e) { console.warn('snapshot error', e); }
+}
+
+async function loadSnapshots(){
+  try {
+    const rows = await SB.get('snapshots', 'order=day.asc&limit=365');
+    return rows || [];
+  } catch(e) { return []; }
+}
+
 // LocalStorage fallback
 function loadP(){
   try{const s=localStorage.getItem('pf');if(s)return JSON.parse(s);}catch(_){}
@@ -1439,6 +1498,16 @@ function renderDash(){
 
   html += `</div>`;
 
+  // Graphique d'évolution du patrimoine
+  html += `
+    <div class="card" style="margin-top:24px">
+      <div class="card-header"><div class="card-title">Évolution du patrimoine</div></div>
+      <div class="card-body">
+        <div id="patrimoine-chart"><div class="chart-loading" style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:13px">Chargement de l'historique...</div></div>
+      </div>
+    </div>
+  `;
+
   // Camembert répartition par enveloppe
   html += `
     <div class="card pie-section" style="margin-top:24px">
@@ -1449,7 +1518,7 @@ function renderDash(){
 
   document.getElementById('page-dashboard').innerHTML = html;
 
-  // Dessiner le camembert
+  // Camembert
   const pieData = Object.values(P).map(acc=>({
     label: acc.label,
     value: tot(acc.holdings),
@@ -1457,6 +1526,54 @@ function renderDash(){
   })).filter(d=>d.value>0);
   drawPie(pieData, 'pie-container');
   restoreOpenAccounts();
+
+  // Graphique d'évolution (asynchrone)
+  loadAndDrawPatrimoine();
+}
+
+// Charge les snapshots et dessine l'évolution du patrimoine
+async function loadAndDrawPatrimoine(){
+  const el = document.getElementById('patrimoine-chart');
+  if(!el) return;
+  const snaps = await loadSnapshots();
+  if(!snaps || snaps.length < 2){
+    el.innerHTML = `<div style="height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3);font-size:13px;gap:6px">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span>Le graphique se construira jour après jour</span>
+      <span style="font-size:11px;color:var(--text-4)">${snaps.length} point${snaps.length>1?'s':''} enregistré${snaps.length>1?'s':''} · reviens demain</span>
+    </div>`;
+    return;
+  }
+  const data = snaps.map(s=>({time:new Date(s.day).getTime(), price:parseFloat(s.total_value)}));
+  drawSimpleLine(data, 'patrimoine-chart');
+}
+
+// Graphique ligne simple (pour le patrimoine) avec tooltip
+function drawSimpleLine(data, containerId){
+  const el=document.getElementById(containerId);
+  if(!el||data.length<2) return;
+  const W=el.offsetWidth||340, H=170;
+  const P2={t:14,b:22,l:4,r:8};
+  const prices=data.map(d=>d.price);
+  const minP=Math.min(...prices), maxP=Math.max(...prices), rng=maxP-minP||1;
+  const isUp=prices[prices.length-1]>=prices[0];
+  const lc=isUp?'#22C55E':'#EF4444';
+  const x=i=>P2.l+(i/(data.length-1))*(W-P2.l-P2.r);
+  const y=p=>P2.t+(H-P2.t-P2.b)-((p-minP)/rng)*(H-P2.t-P2.b);
+  const line=data.map((d,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(d.price).toFixed(1)}`).join(' ');
+  const fill=`${line} L${x(data.length-1).toFixed(1)},${(H-P2.b).toFixed(1)} L${P2.l},${(H-P2.b).toFixed(1)} Z`;
+  const yl=[minP,(minP+maxP)/2,maxP];
+  const grid=isDark?'#27272A':'#E4E4E7', lab=isDark?'#71717A':'#A1A1AA';
+  let svg=`<svg width="${W}" height="${H}" style="display:block"><defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lc}" stop-opacity="${isDark?.18:.1}"/><stop offset="100%" stop-color="${lc}" stop-opacity="0"/></linearGradient></defs>`;
+  yl.forEach(v=>{const yy=y(v);svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${grid}" stroke-width="1" stroke-dasharray="3,4"/><text x="${P2.l+2}" y="${(yy-3).toFixed(1)}" fill="${lab}" font-size="9" font-family="monospace" opacity="0.7">${eur(v)}</text>`;});
+  svg+=`<path d="${fill}" fill="url(#pg)"/><path d="${line}" stroke="${lc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  svg+=`<circle cx="${x(data.length-1).toFixed(1)}" cy="${y(prices[prices.length-1]).toFixed(1)}" r="4" fill="${lc}" stroke="${isDark?'#18181B':'#fff'}" stroke-width="2"/></svg>`;
+  // footer
+  const chg=prices[prices.length-1]-prices[0], chgPct=prices[0]>0?chg/prices[0]*100:0;
+  const d1=new Date(data[0].time).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+  const d2=new Date(data[data.length-1].time).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+  svg+=`<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-4);font-family:var(--font-mono)"><span>${d1} → ${d2}</span><span style="color:${isUp?'var(--accent-light)':'var(--danger-light)'}">${sign(chg)}${eur(chg)} (${sign(chgPct)}${chgPct.toFixed(1)}%)</span></div>`;
+  el.innerHTML=svg;
 }
 
 function accIcon(id){
@@ -1555,7 +1672,14 @@ function renderPort(){
             </div>
           </div>
         </div>
-        <div id="hold-p-${acc.id}" class="holdings-list">
+        <div id="hold-p-${acc.id}">
+          <div style="padding:16px;border-top:1px solid var(--border)">
+            <div style="font-size:10px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">Évolution</div>
+            <div id="acc-evo-${acc.id}" style="margin-bottom:16px"><div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">—</div></div>
+            <div style="font-size:10px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">Répartition des actifs</div>
+            <div id="acc-pie-${acc.id}"></div>
+          </div>
+          <div class="holdings-list">
           ${acc.holdings.map(h=>{
             const hg=(h.current||0)-(h.invested||0);
             const hgPct=h.invested>0?hg/h.invested*100:0;
@@ -1576,11 +1700,43 @@ function renderPort(){
               </div>
             </div>`;
           }).join('')}
+          </div>
         </div>
       </div>`;
   });
 
   document.getElementById('page-portefeuille').innerHTML=html;
+
+  // Dessiner les camemberts et évolutions par compte (asynchrone)
+  Object.values(P).forEach(acc=>{
+    // Camembert des actifs de ce compte
+    const colors=['#6366F1','#D97706','#8B5CF6','#0D9488','#EC4899','#0EA5E9','#84CC16','#F43F5E'];
+    const pieData=acc.holdings.filter(h=>(h.current||0)>0).map((h,i)=>({
+      label:h.name, value:h.current||0, color:colors[i%colors.length],
+    }));
+    if(pieData.length>0) drawPie(pieData, `acc-pie-${acc.id}`);
+    else { const e=document.getElementById(`acc-pie-${acc.id}`); if(e) e.innerHTML='<div style="color:var(--text-4);font-size:12px">Aucun actif</div>'; }
+  });
+  // Évolution par compte depuis snapshots
+  loadAccountEvolutions();
+}
+
+async function loadAccountEvolutions(){
+  const snaps = await loadSnapshots();
+  Object.values(P).forEach(acc=>{
+    const el=document.getElementById(`acc-evo-${acc.id}`);
+    if(!el) return;
+    if(!snaps || snaps.length<2){
+      el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px;text-align:center">L\'évolution apparaîtra<br>après quelques jours</div>';
+      return;
+    }
+    const data=snaps.map(s=>{
+      let per={}; try{per=JSON.parse(s.per_account||'{}');}catch(_){}
+      return {time:new Date(s.day).getTime(), price:parseFloat(per[acc.id]||0)};
+    }).filter(d=>d.price>0);
+    if(data.length<2){ el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Pas assez de données</div>'; return; }
+    drawSimpleLine(data, `acc-evo-${acc.id}`);
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -2652,6 +2808,8 @@ document.getElementById('content').innerHTML = `
 
   renderDash();
   startRefresh();
+  // Enregistrer le snapshot du patrimoine du jour (après que les cours soient chargés)
+  setTimeout(()=>{ saveSnapshot().then(()=>{ if(page==='dashboard') loadAndDrawPatrimoine(); }); }, 5000);
 })();
 </script>
 <script>
