@@ -1437,6 +1437,15 @@ function renderDash(){
         </div>
       </div>
     </div>
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><div class="card-title">Évolution du patrimoine</div></div>
+      <div class="card-body">
+        <div class="period-row" style="margin-bottom:14px">
+          ${[['1wk','1S'],['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===patriPeriod?'active':''}" onclick="changePatriPeriod('${k}')">${l}</button>`).join('')}
+        </div>
+        <div id="patrimoine-chart"><div class="chart-loading" style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:13px">Reconstruction de l'historique...</div></div>
+      </div>
+    </div>
     <div class="section-header">
       <div class="section-title">Répartition</div>
     </div>
@@ -1498,16 +1507,6 @@ function renderDash(){
 
   html += `</div>`;
 
-  // Graphique d'évolution du patrimoine
-  html += `
-    <div class="card" style="margin-top:24px">
-      <div class="card-header"><div class="card-title">Évolution du patrimoine</div></div>
-      <div class="card-body">
-        <div id="patrimoine-chart"><div class="chart-loading" style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:13px">Chargement de l'historique...</div></div>
-      </div>
-    </div>
-  `;
-
   // Camembert répartition par enveloppe
   html += `
     <div class="card pie-section" style="margin-top:24px">
@@ -1531,21 +1530,100 @@ function renderDash(){
   loadAndDrawPatrimoine();
 }
 
-// Charge les snapshots et dessine l'évolution du patrimoine
+// Période sélectionnée pour le graphe patrimoine
+let patriPeriod = '1mo';
+let patriCache = {}; // cache des historiques par ticker+période
+// Date de référence = entrée en bourse. Avant cette date, rien n'est affiché.
+// Par défaut : aujourd'hui (le suivi démarre maintenant et grandit jour après jour).
+let refDate = localStorage.getItem('refDate') || new Date().toISOString().slice(0,10);
+if(!localStorage.getItem('refDate')) localStorage.setItem('refDate', refDate);
+const refTime = () => new Date(refDate + 'T00:00:00').getTime();
+
+function changePatriPeriod(p){
+  patriPeriod = p;
+  document.querySelectorAll('#page-dashboard .period-btn').forEach(b=>{
+    const map={'1wk':'1S','1mo':'1M','6mo':'6M','1y':'1A','5y':'Max'};
+    b.classList.toggle('active', b.textContent===map[p]);
+  });
+  const el=document.getElementById('patrimoine-chart');
+  if(el) el.innerHTML='<div class="chart-loading" style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:13px">Reconstruction...</div>';
+  loadAndDrawPatrimoine();
+}
+
+// Reconstruit l'évolution du patrimoine à partir de l'historique Yahoo de chaque actif
 async function loadAndDrawPatrimoine(){
   const el = document.getElementById('patrimoine-chart');
   if(!el) return;
-  const snaps = await loadSnapshots();
-  if(!snaps || snaps.length < 2){
-    el.innerHTML = `<div style="height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3);font-size:13px;gap:6px">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      <span>Le graphique se construira jour après jour</span>
-      <span style="font-size:11px;color:var(--text-4)">${snaps.length} point${snaps.length>1?'s':''} enregistré${snaps.length>1?'s':''} · reviens demain</span>
-    </div>`;
+
+  // Mapping période -> interval/range Yahoo
+  const map = {'1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+  const [iv,rg] = map[patriPeriod].split(',');
+
+  // Récupère l'historique de chaque actif qui a un ticker
+  const tickerHoldings = [];
+  Object.values(P).forEach(acc=>acc.holdings.forEach(h=>{
+    if(h.ticker && h.qty) tickerHoldings.push(h);
+  }));
+
+  // Valeur fixe des actifs SANS ticker (fonds euro, PEE) — considérés constants
+  const fixedValue = Object.values(P).reduce((s,acc)=>
+    s + acc.holdings.filter(h=>!h.ticker || !h.qty).reduce((ss,h)=>ss+(h.current||0),0), 0);
+
+  if(tickerHoldings.length===0){
+    el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Aucun actif coté pour tracer l\'évolution</div>';
     return;
   }
-  const data = snaps.map(s=>({time:new Date(s.day).getTime(), price:parseFloat(s.total_value)}));
-  drawSimpleLine(data, 'patrimoine-chart');
+
+  try {
+    // Récupère tous les historiques en parallèle
+    const histories = await Promise.all(tickerHoldings.map(async h=>{
+      const key = `${h.ticker}_${patriPeriod}`;
+      if(patriCache[key]) return {h, points:patriCache[key]};
+      try {
+        const res = await fetch(`${API}/api/quote?ticker=${encodeURIComponent(h.ticker)}&interval=${iv}&range=${rg}`);
+        const json = await res.json();
+        const points = (json.data||[]).filter(p=>p.price!=null);
+        patriCache[key] = points;
+        return {h, points};
+      } catch(e){ return {h, points:[]}; }
+    }));
+
+    // Construire une grille de dates commune (on prend l'actif avec le plus de points)
+    let base = histories.reduce((best,cur)=> cur.points.length>best.points.length?cur:best, {points:[]});
+    if(!base.points || base.points.length<2){
+      el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Historique indisponible</div>';
+      return;
+    }
+
+    // Ne garder que les points À PARTIR de la date de référence (entrée en bourse)
+    const rt = refTime();
+    let basePts = base.points.filter(p=>p.time>=rt);
+    // Si la référence est aujourd'hui (un seul point), on garde le dernier point réel + un point "maintenant" à 0%
+    if(basePts.length<2){
+      // Construire au moins 2 points : la date de réf et maintenant
+      const lastReal = base.points[base.points.length-1];
+      basePts = [{time:rt, price:lastReal.price}, {time:Date.now(), price:lastReal.price}];
+    }
+
+    // Pour chaque date retenue, additionner qty×cours de chaque actif (interpolé au plus proche)
+    const patrimoine = basePts.map((bp, idx)=>{
+      let total = fixedValue;
+      histories.forEach(({h, points})=>{
+        if(points.length===0){ total += (h.current||0); return; }
+        // Trouver le point le plus proche dans le temps
+        let closest = points[0];
+        for(const pt of points){
+          if(Math.abs(pt.time-bp.time) < Math.abs(closest.time-bp.time)) closest = pt;
+        }
+        total += (h.qty||0) * closest.price;
+      });
+      return {time: bp.time, price: +total.toFixed(2)};
+    });
+
+    drawSimpleLine(patrimoine, 'patrimoine-chart');
+  } catch(e){
+    el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Erreur de reconstruction</div>';
+  }
 }
 
 // Graphique ligne simple (pour le patrimoine) avec tooltip
@@ -1674,8 +1752,13 @@ function renderPort(){
         </div>
         <div id="hold-p-${acc.id}">
           <div style="padding:16px;border-top:1px solid var(--border)">
-            <div style="font-size:10px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">Évolution</div>
-            <div id="acc-evo-${acc.id}" style="margin-bottom:16px"><div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">—</div></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-size:10px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase">Évolution</div>
+              <div class="period-row" style="margin:0">
+                ${[['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===accPeriod?'active':''}" onclick="changeAccPeriod('${k}')" style="padding:3px 8px;font-size:10px">${l}</button>`).join('')}
+              </div>
+            </div>
+            <div id="acc-evo-${acc.id}" style="margin-bottom:16px"><div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Reconstruction...</div></div>
             <div style="font-size:10px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">Répartition des actifs</div>
             <div id="acc-pie-${acc.id}"></div>
           </div>
@@ -1721,22 +1804,82 @@ function renderPort(){
   loadAccountEvolutions();
 }
 
-async function loadAccountEvolutions(){
-  const snaps = await loadSnapshots();
+let accPeriod = '1mo'; // période pour l'évolution par enveloppe
+
+function changeAccPeriod(p){
+  accPeriod = p;
+  document.querySelectorAll('#page-portefeuille .period-btn').forEach(b=>{
+    const map={'1mo':'1M','6mo':'6M','1y':'1A','5y':'Max'};
+    b.classList.toggle('active', b.textContent===map[p]);
+  });
   Object.values(P).forEach(acc=>{
     const el=document.getElementById(`acc-evo-${acc.id}`);
-    if(!el) return;
-    if(!snaps || snaps.length<2){
-      el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px;text-align:center">L\'évolution apparaîtra<br>après quelques jours</div>';
-      return;
-    }
-    const data=snaps.map(s=>{
-      let per={}; try{per=JSON.parse(s.per_account||'{}');}catch(_){}
-      return {time:new Date(s.day).getTime(), price:parseFloat(per[acc.id]||0)};
-    }).filter(d=>d.price>0);
-    if(data.length<2){ el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Pas assez de données</div>'; return; }
-    drawSimpleLine(data, `acc-evo-${acc.id}`);
+    if(el) el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Reconstruction...</div>';
   });
+  loadAccountEvolutions();
+}
+
+// Reconstruit l'évolution de chaque enveloppe depuis l'historique Yahoo
+async function loadAccountEvolutions(){
+  const map = {'1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+  const [iv,rg] = (map[accPeriod]||map['1mo']).split(',');
+
+  for(const acc of Object.values(P)){
+    const el=document.getElementById(`acc-evo-${acc.id}`);
+    if(!el) continue;
+
+    const tickerH = acc.holdings.filter(h=>h.ticker && h.qty);
+    const fixedVal = acc.holdings.filter(h=>!h.ticker || !h.qty).reduce((s,h)=>s+(h.current||0),0);
+
+    if(tickerH.length===0){
+      // Compte sans actif coté : ligne plate à la valeur fixe
+      el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px;text-align:center">Valeur stable<br>(pas d\'actif coté)</div>';
+      continue;
+    }
+
+    try {
+      const histories = await Promise.all(tickerH.map(async h=>{
+        const key=`${h.ticker}_${accPeriod}`;
+        if(patriCache[key]) return {h, points:patriCache[key]};
+        try {
+          const res=await fetch(`${API}/api/quote?ticker=${encodeURIComponent(h.ticker)}&interval=${iv}&range=${rg}`);
+          const json=await res.json();
+          const points=(json.data||[]).filter(p=>p.price!=null);
+          patriCache[key]=points;
+          return {h, points};
+        } catch(e){ return {h, points:[]}; }
+      }));
+
+      let base = histories.reduce((best,cur)=> cur.points.length>best.points.length?cur:best, {points:[]});
+      if(!base.points || base.points.length<2){
+        el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Historique indisponible</div>';
+        continue;
+      }
+
+      // Filtrer à partir de la date de référence
+      const rt=refTime();
+      let basePts=base.points.filter(p=>p.time>=rt);
+      if(basePts.length<2){
+        const lastReal=base.points[base.points.length-1];
+        basePts=[{time:rt, price:lastReal.price}, {time:Date.now(), price:lastReal.price}];
+      }
+
+      const evo = basePts.map(bp=>{
+        let total = fixedVal;
+        histories.forEach(({h, points})=>{
+          if(points.length===0){ total += (h.current||0); return; }
+          let closest=points[0];
+          for(const pt of points){ if(Math.abs(pt.time-bp.time)<Math.abs(closest.time-bp.time)) closest=pt; }
+          total += (h.qty||0)*closest.price;
+        });
+        return {time:bp.time, price:+total.toFixed(2)};
+      });
+
+      drawSimpleLine(evo, `acc-evo-${acc.id}`);
+    } catch(e){
+      el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Erreur</div>';
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2386,6 +2529,15 @@ async function resyncSupabase(){
   } catch(e) { console.warn('resync error', e); }
 }
 
+function setRefDate(d){
+  if(!d) return;
+  refDate = d;
+  localStorage.setItem('refDate', d);
+  patriCache = {}; // vider le cache pour reconstruire
+  showAlertBanner('Date de référence mise à jour : '+new Date(d).toLocaleDateString('fr-FR'));
+  if(page==='dashboard') loadAndDrawPatrimoine();
+}
+
 function renderEdit(){
   let html=`<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
     <div><div class="page-title">Modifier</div><div class="page-subtitle">Gérez vos lignes de portefeuille</div></div>
@@ -2393,6 +2545,15 @@ function renderEdit(){
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       Réinitialiser à aujourd'hui
     </button>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:13px;font-weight:600">Date d'entrée en bourse</div>
+        <div style="font-size:11px;color:var(--text-3)">Point de départ des graphiques d'évolution</div>
+      </div>
+      <input type="date" class="input" id="ref-date-input" value="${refDate}" onchange="setRefDate(this.value)" style="width:auto">
+    </div>
   </div>`;
   Object.values(P).forEach(acc=>{
     html+=`<div class="edit-section">
