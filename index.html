@@ -2098,8 +2098,43 @@ function delAlert(id){
 // ══════════════════════════════════════════════════════
 // EDIT
 // ══════════════════════════════════════════════════════
+// Remet invested = current pour toutes les lignes (jour 0)
+async function resetToToday(){
+  if(!confirm('Remettre tous les montants investis à la valeur actuelle ? Le gain repartira à 0% pour toutes tes positions.')) return;
+  showAlertBanner('Récupération des cours en cours...');
+  // D'abord récupérer les cours live à jour
+  await fetchLive();
+  // Puis aligner invested sur la valeur actuelle
+  Object.values(P).forEach(acc=>{
+    acc.holdings.forEach(h=>{
+      h.invested = h.current || 0;
+      if(h.qty && h.qty>0) h.pru = +(h.current/h.qty).toFixed(4);
+    });
+  });
+  saveP();
+  await resyncSupabase();
+  renderEdit();
+  showAlertBanner('Portefeuille réinitialisé — gain à 0% pour aujourd\'hui');
+}
+
+// Efface tout le portfolio Supabase et réécrit proprement
+async function resyncSupabase(){
+  try {
+    await fetch(`${SB_URL}/rest/v1/portfolio?account_id=neq.__none__`, {
+      method: 'DELETE', headers: SB.headers,
+    });
+    await saveToSupabase();
+  } catch(e) { console.warn('resync error', e); }
+}
+
 function renderEdit(){
-  let html=`<div class="page-header"><div class="page-title">Modifier</div><div class="page-subtitle">Gérez vos lignes de portefeuille</div></div>`;
+  let html=`<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div><div class="page-title">Modifier</div><div class="page-subtitle">Gérez vos lignes de portefeuille</div></div>
+    <button class="btn btn-secondary btn-sm" onclick="resetToToday()" style="border-color:var(--amber);color:var(--amber-light)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Réinitialiser à aujourd'hui
+    </button>
+  </div>`;
   Object.values(P).forEach(acc=>{
     html+=`<div class="edit-section">
       <div class="edit-acc-header">
