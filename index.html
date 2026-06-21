@@ -1059,13 +1059,14 @@ async function saveToSupabase() {
         });
       });
     });
-    // Upsert avec contrainte unique sur (account_id, holding_id)
-    const r = await fetch(`${SB_URL}/rest/v1/portfolio`, {
+    // Upsert avec contrainte unique : on_conflict DANS L'URL (pas en header)
+    const r = await fetch(`${SB_URL}/rest/v1/portfolio?on_conflict=account_id,holding_id`, {
       method: 'POST',
       headers: {
-        ...SB.headers,
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
         'Prefer': 'resolution=merge-duplicates,return=minimal',
-        'on-conflict': 'account_id,holding_id',
       },
       body: JSON.stringify(rows),
     });
@@ -2491,6 +2492,20 @@ async function renderHistorique() {
 // INIT
 // ══════════════════════════════════════════════════════
 applyTheme();
+
+// Reset d'urgence : ajoute ?reset=1 à l'URL pour repartir des données par défaut
+if(new URLSearchParams(location.search).get('reset')==='1'){
+  localStorage.clear();
+  // Efface aussi Supabase puis recharge proprement
+  (async()=>{
+    try{
+      await fetch(`${SB_URL}/rest/v1/portfolio?account_id=neq.__x__`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+    }catch(e){}
+    P = JSON.parse(JSON.stringify(DEFAULT));
+    await saveToSupabase();
+    location.href = location.pathname; // recharge sans le param
+  })();
+}
 
 // Demander la permission de notification (pour les alertes)
 if('Notification' in window && Notification.permission==='default'){
