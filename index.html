@@ -1421,8 +1421,8 @@ function renderDash(){
           <div class="hero-label">Patrimoine total</div>
           <div class="hero-value">${eur(totC)}</div>
           <div class="hero-change">
-            ${badgePnl(g,gPct)}
-            ${lastUpdate?`<span style="font-size:11px;color:var(--text-4)">Cours : ${hhmm(lastUpdate)}</span>`:''}
+            <span id="hero-perf-badge">${badgePnl(g,gPct)}</span>
+            <span id="hero-perf-label" style="font-size:11px;color:var(--text-4)">total</span>
           </div>
         </div>
         <div class="hero-right">
@@ -1533,6 +1533,19 @@ function renderDash(){
   loadAndDrawPatrimoine();
 }
 
+// Met à jour le % sous le patrimoine total selon la période du graphe
+function updateHeroPerf(series){
+  const badge=document.getElementById('hero-perf-badge');
+  const label=document.getElementById('hero-perf-label');
+  if(!badge||!series||series.length<2) return;
+  const first=series[0].price, last=series[series.length-1].price;
+  const chg=last-first, pct=first>0?chg/first*100:0;
+  const cl=chg>=0?'badge-green':'badge-red';
+  badge.innerHTML=`<span class="badge ${cl}">${sign(chg)}${eur(chg)} (${sign(pct)}${pct.toFixed(2)}%)</span>`;
+  const labels={'1d':'aujourd\'hui','1wk':'7 jours','1mo':'1 mois','6mo':'6 mois','1y':'1 an','5y':'max'};
+  if(label) label.textContent=labels[patriPeriod]||'';
+}
+
 // Période sélectionnée pour le graphe patrimoine
 let patriPeriod = '1mo';
 let patriCache = {}; // cache des historiques par ticker+période
@@ -1624,6 +1637,8 @@ async function loadAndDrawPatrimoine(){
     });
 
     drawSimpleLine(patrimoine, 'patrimoine-chart');
+    // Synchroniser le badge de perf sous le total avec la période choisie
+    updateHeroPerf(patrimoine);
   } catch(e){
     el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Erreur de reconstruction</div>';
   }
@@ -1758,10 +1773,8 @@ function updateDashValues(){
   const totC=Object.values(P).reduce((s,a)=>s+tot(a.holdings),0);
   const totI=Object.values(P).reduce((s,a)=>s+invested(a.holdings),0);
   const g=totC-totI, gPct=totI>0?g/totI*100:0;
-  // Patrimoine total
+  // Patrimoine total (valeur seulement ; le badge % est géré par updateHeroPerf selon la période)
   const hv=document.querySelector('.hero-value'); if(hv) hv.textContent=eur(totC);
-  const hc=document.querySelector('.hero-change .badge'); 
-  if(hc){ hc.className='badge '+(g>=0?'badge-green':'badge-red'); hc.textContent=`${sign(g)}${eur(g)} (${sign(gPct)}${gPct.toFixed(2)}%)`; }
   // Valeurs par compte + lignes
   Object.values(P).forEach(acc=>{
     const v=tot(acc.holdings), i=invested(acc.holdings), gg=v-i, gpct=i>0?gg/i*100:0;
