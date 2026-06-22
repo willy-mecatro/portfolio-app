@@ -1332,7 +1332,10 @@ async function fetchLive(){
       if(openAccounts.size>0) updateDashValues();
       else renderDash();
     }
-    if(page==='portefeuille') renderPort();
+    if(page==='portefeuille'){
+      if(openAccounts.size>0) updatePortValues();
+      else renderPort();
+    }
     if(page==='alertes') renderAlerts();
     if(page==='detail'&&detail) updateDetailPrice();
   }catch(e){ setStatus('error'); }
@@ -1441,7 +1444,7 @@ function renderDash(){
       <div class="card-header"><div class="card-title">Évolution du patrimoine</div></div>
       <div class="card-body">
         <div class="period-row" style="margin-bottom:14px">
-          ${[['1wk','1S'],['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===patriPeriod?'active':''}" onclick="changePatriPeriod('${k}')">${l}</button>`).join('')}
+          ${[['1d','1J'],['1wk','1S'],['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===patriPeriod?'active':''}" onclick="changePatriPeriod('${k}')">${l}</button>`).join('')}
         </div>
         <div id="patrimoine-chart"><div class="chart-loading" style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:13px">Reconstruction de l'historique...</div></div>
       </div>
@@ -1542,7 +1545,7 @@ const refTime = () => new Date(refDate + 'T00:00:00').getTime();
 function changePatriPeriod(p){
   patriPeriod = p;
   document.querySelectorAll('#page-dashboard .period-btn').forEach(b=>{
-    const map={'1wk':'1S','1mo':'1M','6mo':'6M','1y':'1A','5y':'Max'};
+    const map={'1d':'1J','1wk':'1S','1mo':'1M','6mo':'6M','1y':'1A','5y':'Max'};
     b.classList.toggle('active', b.textContent===map[p]);
   });
   const el=document.getElementById('patrimoine-chart');
@@ -1556,7 +1559,7 @@ async function loadAndDrawPatrimoine(){
   if(!el) return;
 
   // Mapping période -> interval/range Yahoo
-  const map = {'1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+  const map = {'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
   const [iv,rg] = map[patriPeriod].split(',');
 
   // Récupère l'historique de chaque actif qui a un ticker
@@ -1595,9 +1598,9 @@ async function loadAndDrawPatrimoine(){
       return;
     }
 
-    // Ne garder que les points À PARTIR de la date de référence (entrée en bourse)
+    // Ne garder que les points À PARTIR de la date de référence (sauf vue intra-jour)
     const rt = refTime();
-    let basePts = base.points.filter(p=>p.time>=rt);
+    let basePts = patriPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
     // Si la référence est aujourd'hui (un seul point), on garde le dernier point réel + un point "maintenant" à 0%
     if(basePts.length<2){
       // Construire au moins 2 points : la date de réf et maintenant
@@ -1646,10 +1649,15 @@ function drawSimpleLine(data, containerId){
   yl.forEach(v=>{const yy=y(v);svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${grid}" stroke-width="1" stroke-dasharray="3,4"/><text x="${P2.l+2}" y="${(yy-3).toFixed(1)}" fill="${lab}" font-size="9" font-family="monospace" opacity="0.7">${eur(v)}</text>`;});
   svg+=`<path d="${fill}" fill="url(#pg)"/><path d="${line}" stroke="${lc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
   svg+=`<circle cx="${x(data.length-1).toFixed(1)}" cy="${y(prices[prices.length-1]).toFixed(1)}" r="4" fill="${lc}" stroke="${isDark?'#18181B':'#fff'}" stroke-width="2"/></svg>`;
-  // footer
+  // footer — format adaptatif (heures si intra-jour, sinon dates)
   const chg=prices[prices.length-1]-prices[0], chgPct=prices[0]>0?chg/prices[0]*100:0;
-  const d1=new Date(data[0].time).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
-  const d2=new Date(data[data.length-1].time).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+  const span = data[data.length-1].time - data[0].time;
+  const intraday = span < 2*24*3600*1000; // moins de 2 jours
+  const fmt = t => intraday
+    ? new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+    : new Date(t).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+  const d1=fmt(data[0].time);
+  const d2=fmt(data[data.length-1].time);
   svg+=`<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-4);font-family:var(--font-mono)"><span>${d1} → ${d2}</span><span style="color:${isUp?'var(--accent-light)':'var(--danger-light)'}">${sign(chg)}${eur(chg)} (${sign(chgPct)}${chgPct.toFixed(1)}%)</span></div>`;
   el.innerHTML=svg;
 }
@@ -1681,6 +1689,25 @@ function restoreOpenAccounts(){
     const el=document.getElementById(`hold-${id}`);
     const chev=document.getElementById(`chev-${id}`);
     if(el){ el.style.display='block'; if(chev) chev.style.transform='rotate(180deg)'; }
+  });
+}
+
+// Mise à jour douce des valeurs de la page Portefeuille (sans replier les cartes)
+function updatePortValues(){
+  Object.values(P).forEach(acc=>{
+    const v=tot(acc.holdings), i=inv(acc.holdings), g=v-i, gp=i>0?g/i*100:0;
+    // chercher la carte par son chevron
+    const card = document.getElementById(`chev-p-${acc.id}`)?.closest('.account-card');
+    if(!card) return;
+    const valEl=card.querySelector('.acc-value'); if(valEl) valEl.textContent=eur(v);
+    const gainEl=card.querySelector('.acc-gain'); if(gainEl){ gainEl.style.color=colorPnl(g); gainEl.textContent=`${sign(g)}${gp.toFixed(2)}%`; }
+    // lignes individuelles
+    acc.holdings.forEach(h=>{
+      const hv=document.getElementById(`pval-${acc.id}-${h.id}`); if(hv) hv.textContent=eurD(h.current||0);
+      const hp=document.getElementById(`pperf-${acc.id}-${h.id}`);
+      if(hp){ const hg=(h.current||0)-(h.invested||0), hgp=h.invested>0?hg/h.invested*100:0;
+        hp.style.color=hg>=0?'var(--accent-light)':'var(--danger-light)'; hp.textContent=`${sign(hg)}${hgp.toFixed(1)}%`; }
+    });
   });
 }
 
@@ -1745,17 +1772,17 @@ function renderPort(){
           <div class="acc-right">
             <div class="acc-value" style="color:${acc.color}">${eur(v)}</div>
             <div class="acc-gain" style="color:${colorPnl(g)}">${sign(g)}${gPct.toFixed(2)}%</div>
-            <div class="acc-chevron open" id="chev-p-${acc.id}" style="transform:rotate(180deg)">
+            <div class="acc-chevron" id="chev-p-${acc.id}" style="transform:${openAccounts.has('p-'+acc.id)?'rotate(180deg)':'none'}">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
           </div>
         </div>
-        <div id="hold-p-${acc.id}">
+        <div id="hold-p-${acc.id}" style="display:${openAccounts.has('p-'+acc.id)?'block':'none'}">
           <div style="padding:16px;border-top:1px solid var(--border)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div style="font-size:10px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase">Évolution</div>
               <div class="period-row" style="margin:0">
-                ${[['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===accPeriod?'active':''}" onclick="changeAccPeriod('${k}')" style="padding:3px 8px;font-size:10px">${l}</button>`).join('')}
+                ${[['1d','1J'],['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===accPeriod?'active':''}" onclick="changeAccPeriod('${k}')" style="padding:3px 8px;font-size:10px">${l}</button>`).join('')}
               </div>
             </div>
             <div id="acc-evo-${acc.id}" style="margin-bottom:16px"><div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px">Reconstruction...</div></div>
@@ -1777,8 +1804,8 @@ function renderPort(){
                 </div>
               </div>
               <div class="h-right">
-                <div class="h-value">${eurD(h.current||0)}</div>
-                ${h.invested>0?`<div class="h-perf" style="color:${colorPnl(hg)}">${sign(hg)}${hgPct.toFixed(1)}%</div>`:''}
+                <div class="h-value" id="pval-${acc.id}-${h.id}">${eurD(h.current||0)}</div>
+                ${h.invested>0?`<div class="h-perf" id="pperf-${acc.id}-${h.id}" style="color:${colorPnl(hg)}">${sign(hg)}${hgPct.toFixed(1)}%</div>`:''}
                 <div class="h-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
               </div>
             </div>`;
@@ -1809,7 +1836,7 @@ let accPeriod = '1mo'; // période pour l'évolution par enveloppe
 function changeAccPeriod(p){
   accPeriod = p;
   document.querySelectorAll('#page-portefeuille .period-btn').forEach(b=>{
-    const map={'1mo':'1M','6mo':'6M','1y':'1A','5y':'Max'};
+    const map={'1d':'1J','1mo':'1M','6mo':'6M','1y':'1A','5y':'Max'};
     b.classList.toggle('active', b.textContent===map[p]);
   });
   Object.values(P).forEach(acc=>{
@@ -1821,7 +1848,7 @@ function changeAccPeriod(p){
 
 // Reconstruit l'évolution de chaque enveloppe depuis l'historique Yahoo
 async function loadAccountEvolutions(){
-  const map = {'1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+  const map = {'1d':'5m,1d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
   const [iv,rg] = (map[accPeriod]||map['1mo']).split(',');
 
   for(const acc of Object.values(P)){
@@ -1856,9 +1883,9 @@ async function loadAccountEvolutions(){
         continue;
       }
 
-      // Filtrer à partir de la date de référence
+      // Filtrer à partir de la date de référence (sauf vue intra-jour)
       const rt=refTime();
-      let basePts=base.points.filter(p=>p.time>=rt);
+      let basePts= accPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
       if(basePts.length<2){
         const lastReal=base.points[base.points.length-1];
         basePts=[{time:rt, price:lastReal.price}, {time:Date.now(), price:lastReal.price}];
