@@ -1441,7 +1441,7 @@ function renderDash(){
       </div>
     </div>
     <div class="card" style="margin-bottom:24px">
-      <div class="card-header"><div class="card-title">Évolution du patrimoine</div></div>
+      <div class="card-header"><div class="card-title">Performance du patrimoine</div></div>
       <div class="card-body">
         <div class="period-row" style="margin-bottom:14px">
           ${[['1d','1J'],['1wk','1S'],['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','Max']].map(([k,l])=>`<button class="period-btn ${k===patriPeriod?'active':''}" onclick="changePatriPeriod('${k}')">${l}</button>`).join('')}
@@ -1634,32 +1634,74 @@ function drawSimpleLine(data, containerId){
   const el=document.getElementById(containerId);
   if(!el||data.length<2) return;
   const W=el.offsetWidth||340, H=170;
-  const P2={t:14,b:22,l:4,r:8};
-  const prices=data.map(d=>d.price);
-  const minP=Math.min(...prices), maxP=Math.max(...prices), rng=maxP-minP||1;
-  const isUp=prices[prices.length-1]>=prices[0];
+  const P2={t:16,b:24,l:4,r:8};
+  const base=data[0].price||1;
+  // On travaille en PERFORMANCE % par rapport au premier point
+  const perfs=data.map(d=>(d.price-base)/base*100);
+  const minP=Math.min(...perfs,0), maxP=Math.max(...perfs,0), rng=(maxP-minP)||1;
+  const isUp=perfs[perfs.length-1]>=0;
   const lc=isUp?'#22C55E':'#EF4444';
   const x=i=>P2.l+(i/(data.length-1))*(W-P2.l-P2.r);
   const y=p=>P2.t+(H-P2.t-P2.b)-((p-minP)/rng)*(H-P2.t-P2.b);
-  const line=data.map((d,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(d.price).toFixed(1)}`).join(' ');
+  const line=perfs.map((p,i)=>`${i===0?'M':'L'}${x(i).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
   const fill=`${line} L${x(data.length-1).toFixed(1)},${(H-P2.b).toFixed(1)} L${P2.l},${(H-P2.b).toFixed(1)} Z`;
-  const yl=[minP,(minP+maxP)/2,maxP];
+  const yl=[maxP,(maxP+minP)/2,minP];
   const grid=isDark?'#27272A':'#E4E4E7', lab=isDark?'#71717A':'#A1A1AA';
-  let svg=`<svg width="${W}" height="${H}" style="display:block"><defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lc}" stop-opacity="${isDark?.18:.1}"/><stop offset="100%" stop-color="${lc}" stop-opacity="0"/></linearGradient></defs>`;
-  yl.forEach(v=>{const yy=y(v);svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${grid}" stroke-width="1" stroke-dasharray="3,4"/><text x="${P2.l+2}" y="${(yy-3).toFixed(1)}" fill="${lab}" font-size="9" font-family="monospace" opacity="0.7">${eur(v)}</text>`;});
-  svg+=`<path d="${fill}" fill="url(#pg)"/><path d="${line}" stroke="${lc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-  svg+=`<circle cx="${x(data.length-1).toFixed(1)}" cy="${y(prices[prices.length-1]).toFixed(1)}" r="4" fill="${lc}" stroke="${isDark?'#18181B':'#fff'}" stroke-width="2"/></svg>`;
-  // footer — format adaptatif (heures si intra-jour, sinon dates)
-  const chg=prices[prices.length-1]-prices[0], chgPct=prices[0]>0?chg/prices[0]*100:0;
   const span = data[data.length-1].time - data[0].time;
-  const intraday = span < 2*24*3600*1000; // moins de 2 jours
+  const intraday = span < 2*24*3600*1000;
   const fmt = t => intraday
     ? new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
     : new Date(t).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
-  const d1=fmt(data[0].time);
-  const d2=fmt(data[data.length-1].time);
-  svg+=`<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-4);font-family:var(--font-mono)"><span>${d1} → ${d2}</span><span style="color:${isUp?'var(--accent-light)':'var(--danger-light)'}">${sign(chg)}${eur(chg)} (${sign(chgPct)}${chgPct.toFixed(1)}%)</span></div>`;
-  el.innerHTML=svg;
+
+  let svg=`<svg id="sl-svg-${containerId}" width="${W}" height="${H}" style="display:block;cursor:crosshair;touch-action:none"><defs><linearGradient id="pg-${containerId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lc}" stop-opacity="${isDark?.18:.1}"/><stop offset="100%" stop-color="${lc}" stop-opacity="0"/></linearGradient></defs>`;
+  // Ligne de zéro (référence) si dans la plage
+  if(minP<0 && maxP>0){ const yz=y(0); svg+=`<line x1="${P2.l}" y1="${yz.toFixed(1)}" x2="${W-P2.r}" y2="${yz.toFixed(1)}" stroke="${lab}" stroke-width="1" stroke-dasharray="2,3" opacity="0.5"/>`; }
+  yl.forEach(v=>{const yy=y(v);svg+=`<line x1="${P2.l}" y1="${yy.toFixed(1)}" x2="${W-P2.r}" y2="${yy.toFixed(1)}" stroke="${grid}" stroke-width="1" stroke-dasharray="3,4"/><text x="${P2.l+2}" y="${(yy-3).toFixed(1)}" fill="${lab}" font-size="9" font-family="monospace" opacity="0.7">${v>=0?'+':''}${v.toFixed(1)}%</text>`;});
+  svg+=`<path d="${fill}" fill="url(#pg-${containerId})"/><path d="${line}" stroke="${lc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // crosshair + dot (cachés au départ)
+  svg+=`<line id="sl-vline-${containerId}" x1="0" y1="${P2.t}" x2="0" y2="${H-P2.b}" stroke="${lab}" stroke-width="1" stroke-dasharray="4,3" display="none"/>`;
+  svg+=`<circle id="sl-dot-${containerId}" r="5" fill="${lc}" stroke="${isDark?'#18181B':'#fff'}" stroke-width="2.5" display="none"/>`;
+  svg+=`<circle cx="${x(data.length-1).toFixed(1)}" cy="${y(perfs[perfs.length-1]).toFixed(1)}" r="4" fill="${lc}" stroke="${isDark?'#18181B':'#fff'}" stroke-width="2"/></svg>`;
+
+  // footer
+  const chgPct=perfs[perfs.length-1];
+  const chgEur=data[data.length-1].price-base;
+  const footer=`<div id="sl-footer-${containerId}" style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-4);font-family:var(--font-mono)"><span id="sl-foot-left-${containerId}">${fmt(data[0].time)} → ${fmt(data[data.length-1].time)}</span><span id="sl-foot-right-${containerId}" style="color:${isUp?'var(--accent-light)':'var(--danger-light)'}">${sign(chgPct)}${chgPct.toFixed(2)}% (${sign(chgEur)}${eur(chgEur)})</span></div>`;
+
+  el.innerHTML=`<div style="position:relative">${svg}${footer}</div>`;
+
+  // Interactions curseur
+  const svgEl=document.getElementById(`sl-svg-${containerId}`);
+  const vline=document.getElementById(`sl-vline-${containerId}`);
+  const dot=document.getElementById(`sl-dot-${containerId}`);
+  const footL=document.getElementById(`sl-foot-left-${containerId}`);
+  const footR=document.getElementById(`sl-foot-right-${containerId}`);
+  if(!svgEl) return;
+  function move(clientX){
+    const rect=svgEl.getBoundingClientRect();
+    const mx=clientX-rect.left;
+    const cw=W-P2.l-P2.r;
+    const ratio=Math.max(0,Math.min(1,(mx-P2.l)/cw));
+    const idx=Math.round(ratio*(data.length-1));
+    const px=x(idx), py=y(perfs[idx]);
+    vline.setAttribute('x1',px.toFixed(1)); vline.setAttribute('x2',px.toFixed(1)); vline.removeAttribute('display');
+    dot.setAttribute('cx',px.toFixed(1)); dot.setAttribute('cy',py.toFixed(1)); dot.removeAttribute('display');
+    const p=perfs[idx];
+    footL.textContent=fmt(data[idx].time);
+    footR.style.color=p>=0?'var(--accent-light)':'var(--danger-light)';
+    footR.textContent=`${sign(p)}${p.toFixed(2)}% (${eur(data[idx].price)})`;
+  }
+  function leave(){
+    vline.setAttribute('display','none'); dot.setAttribute('display','none');
+    footL.textContent=`${fmt(data[0].time)} → ${fmt(data[data.length-1].time)}`;
+    footR.style.color=isUp?'var(--accent-light)':'var(--danger-light)';
+    footR.textContent=`${sign(chgPct)}${chgPct.toFixed(2)}% (${sign(chgEur)}${eur(chgEur)})`;
+  }
+  svgEl.addEventListener('mousemove',e=>move(e.clientX));
+  svgEl.addEventListener('mouseleave',leave);
+  svgEl.addEventListener('touchstart',e=>{e.preventDefault();move(e.touches[0].clientX);},{passive:false});
+  svgEl.addEventListener('touchmove',e=>{e.preventDefault();move(e.touches[0].clientX);},{passive:false});
+  svgEl.addEventListener('touchend',leave);
 }
 
 function accIcon(id){
