@@ -1547,7 +1547,7 @@ function updateHeroPerf(series){
 }
 
 // Période sélectionnée pour le graphe patrimoine
-let patriPeriod = '1mo';
+let patriPeriod = '1d';
 let patriCache = {}; // cache des historiques par ticker+période
 // Date de référence = entrée en bourse. Avant cette date, rien n'est affiché.
 // Par défaut : aujourd'hui (le suivi démarre maintenant et grandit jour après jour).
@@ -1572,26 +1572,20 @@ async function loadAndDrawPatrimoine(){
   if(!el) return;
 
   // Mapping période -> interval/range Yahoo
-  const map = {'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+  const map = {'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,max'};
   const [iv,rg] = map[patriPeriod].split(',');
 
-  // Récupère l'historique de chaque actif qui a un ticker
   const tickerHoldings = [];
-  Object.values(P).forEach(acc=>acc.holdings.forEach(h=>{
-    if(h.ticker && h.qty) tickerHoldings.push(h);
-  }));
-
-  // Valeur fixe des actifs SANS ticker (fonds euro, PEE) — considérés constants
+  Object.values(P).forEach(acc=>acc.holdings.forEach(h=>{ if(h.ticker && h.qty) tickerHoldings.push(h); }));
   const fixedValue = Object.values(P).reduce((s,acc)=>
     s + acc.holdings.filter(h=>!h.ticker || !h.qty).reduce((ss,h)=>ss+(h.current||0),0), 0);
 
   if(tickerHoldings.length===0){
-    el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Aucun actif coté pour tracer l\'évolution</div>';
+    el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Aucun actif coté</div>';
     return;
   }
 
   try {
-    // Récupère tous les historiques en parallèle
     const histories = await Promise.all(tickerHoldings.map(async h=>{
       const key = `${h.ticker}_${patriPeriod}`;
       if(patriCache[key]) return {h, points:patriCache[key]};
@@ -1604,40 +1598,35 @@ async function loadAndDrawPatrimoine(){
       } catch(e){ return {h, points:[]}; }
     }));
 
-    // Construire une grille de dates commune (on prend l'actif avec le plus de points)
     let base = histories.reduce((best,cur)=> cur.points.length>best.points.length?cur:best, {points:[]});
     if(!base.points || base.points.length<2){
       el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Historique indisponible</div>';
       return;
     }
 
-    // Ne garder que les points À PARTIR de la date de référence (sauf vue intra-jour)
+    // FILTRE : ne garder que les points depuis la date de référence (sauf 1J = intraday d'aujourd'hui)
     const rt = refTime();
     let basePts = patriPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
-    // Si la référence est aujourd'hui (un seul point), on garde le dernier point réel + un point "maintenant" à 0%
+
     if(basePts.length<2){
-      // Construire au moins 2 points : la date de réf et maintenant
-      const lastReal = base.points[base.points.length-1];
-      basePts = [{time:rt, price:lastReal.price}, {time:Date.now(), price:lastReal.price}];
+      el.innerHTML=`<div style="height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3);font-size:13px;gap:6px;text-align:center"><span>Pas encore assez d'historique depuis le ${new Date(refDate).toLocaleDateString('fr-FR')}</span><span style="font-size:11px;color:var(--text-4)">La courbe s'étoffera avec le temps</span></div>`;
+      const total=Object.values(P).reduce((s,a)=>s+tot(a.holdings),0);
+      updateHeroPerf([{price:total},{price:total}]);
+      return;
     }
 
-    // Pour chaque date retenue, additionner qty×cours de chaque actif (interpolé au plus proche)
-    const patrimoine = basePts.map((bp, idx)=>{
+    const patrimoine = basePts.map(bp=>{
       let total = fixedValue;
       histories.forEach(({h, points})=>{
         if(points.length===0){ total += (h.current||0); return; }
-        // Trouver le point le plus proche dans le temps
         let closest = points[0];
-        for(const pt of points){
-          if(Math.abs(pt.time-bp.time) < Math.abs(closest.time-bp.time)) closest = pt;
-        }
-        total += (h.qty||0) * closest.price;
+        for(const pt of points){ if(Math.abs(pt.time-bp.time)<Math.abs(closest.time-bp.time)) closest=pt; }
+        total += (h.qty||0)*closest.price;
       });
-      return {time: bp.time, price: +total.toFixed(2)};
+      return {time:bp.time, price:+total.toFixed(2)};
     });
 
     drawSimpleLine(patrimoine, 'patrimoine-chart');
-    // Synchroniser le badge de perf sous le total avec la période choisie
     updateHeroPerf(patrimoine);
   } catch(e){
     el.innerHTML='<div style="height:160px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:13px">Erreur de reconstruction</div>';
@@ -1886,7 +1875,7 @@ function renderPort(){
   loadAccountEvolutions();
 }
 
-let accPeriod = '1mo'; // période pour l'évolution par enveloppe
+let accPeriod = '1d'; // période pour l'évolution par enveloppe
 
 function changeAccPeriod(p){
   accPeriod = p;
@@ -1903,8 +1892,9 @@ function changeAccPeriod(p){
 
 // Reconstruit l'évolution de chaque enveloppe depuis l'historique Yahoo
 async function loadAccountEvolutions(){
-  const map = {'1d':'5m,1d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+  const map = {'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,max'};
   const [iv,rg] = (map[accPeriod]||map['1mo']).split(',');
+  const rt = refTime();
 
   for(const acc of Object.values(P)){
     const el=document.getElementById(`acc-evo-${acc.id}`);
@@ -1914,7 +1904,6 @@ async function loadAccountEvolutions(){
     const fixedVal = acc.holdings.filter(h=>!h.ticker || !h.qty).reduce((s,h)=>s+(h.current||0),0);
 
     if(tickerH.length===0){
-      // Compte sans actif coté : ligne plate à la valeur fixe
       el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px;text-align:center">Valeur stable<br>(pas d\'actif coté)</div>';
       continue;
     }
@@ -1938,12 +1927,11 @@ async function loadAccountEvolutions(){
         continue;
       }
 
-      // Filtrer à partir de la date de référence (sauf vue intra-jour)
-      const rt=refTime();
-      let basePts= accPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
+      // FILTRE date de référence (sauf 1J intraday)
+      let basePts = accPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
       if(basePts.length<2){
-        const lastReal=base.points[base.points.length-1];
-        basePts=[{time:rt, price:lastReal.price}, {time:Date.now(), price:lastReal.price}];
+        el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px;text-align:center">Historique trop court<br>depuis le '+new Date(refDate).toLocaleDateString('fr-FR')+'</div>';
+        continue;
       }
 
       const evo = basePts.map(bp=>{
@@ -2117,7 +2105,7 @@ async function loadChart(ticker, p, color){
   const ca=document.getElementById('chart-area');
   if(!ca) return;
   try{
-    const map={'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,5y'};
+    const map={'1d':'5m,1d','1wk':'1h,5d','1mo':'1d,1mo','6mo':'1wk,6mo','1y':'1wk,1y','5y':'1mo,max'};
     const [iv,rg]=map[p].split(',');
     const res=await fetch(`${API}/api/quote?ticker=${encodeURIComponent(ticker)}&interval=${iv}&range=${rg}`);
     const json=await res.json();
