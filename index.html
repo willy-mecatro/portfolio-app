@@ -1606,7 +1606,20 @@ async function loadAndDrawPatrimoine(){
 
     // FILTRE : ne garder que les points depuis la date de référence (sauf 1J = intraday d'aujourd'hui)
     const rt = refTime();
-    let basePts = patriPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
+    let basePts;
+    if(patriPeriod==='1d'){
+      // Ne garder que les points d'AUJOURD'HUI (sinon Yahoo inclut la veille et fausse le %)
+      const today=new Date(); today.setHours(0,0,0,0);
+      const t0=today.getTime();
+      basePts = base.points.filter(p=>p.time>=t0);
+      // Si rien aujourd'hui (marché pas encore ouvert / week-end), prendre la dernière séance dispo
+      if(basePts.length<2){
+        const lastDay=new Date(base.points[base.points.length-1].time); lastDay.setHours(0,0,0,0);
+        basePts=base.points.filter(p=>{const d=new Date(p.time);d.setHours(0,0,0,0);return d.getTime()===lastDay.getTime();});
+      }
+    } else {
+      basePts = base.points.filter(p=>p.time>=rt);
+    }
 
     if(basePts.length<2){
       el.innerHTML=`<div style="height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3);font-size:13px;gap:6px;text-align:center"><span>Pas encore assez d'historique depuis le ${new Date(refDate).toLocaleDateString('fr-FR')}</span><span style="font-size:11px;color:var(--text-4)">La courbe s'étoffera avec le temps</span></div>`;
@@ -1615,13 +1628,17 @@ async function loadAndDrawPatrimoine(){
       return;
     }
 
+    // Tolérance temporelle : en 1J on exige un cours du même jour, sinon on garde le cours actuel
+    const tol = patriPeriod==='1d' ? 6*3600*1000 : Infinity; // 6h max d'écart en intraday
     const patrimoine = basePts.map(bp=>{
       let total = fixedValue;
       histories.forEach(({h, points})=>{
         if(points.length===0){ total += (h.current||0); return; }
-        let closest = points[0];
-        for(const pt of points){ if(Math.abs(pt.time-bp.time)<Math.abs(closest.time-bp.time)) closest=pt; }
-        total += (h.qty||0)*closest.price;
+        let closest=null, bestDiff=Infinity;
+        for(const pt of points){ const d=Math.abs(pt.time-bp.time); if(d<bestDiff){bestDiff=d;closest=pt;} }
+        // Si le point le plus proche est trop loin (ex: cours d'hier), on utilise la valeur actuelle
+        const price = (closest && bestDiff<=tol) ? closest.price : ((h.current||0)/(h.qty||1));
+        total += (h.qty||0)*price;
       });
       return {time:bp.time, price:+total.toFixed(2)};
     });
@@ -1928,19 +1945,31 @@ async function loadAccountEvolutions(){
       }
 
       // FILTRE date de référence (sauf 1J intraday)
-      let basePts = accPeriod==='1d' ? base.points.slice() : base.points.filter(p=>p.time>=rt);
+      let basePts;
+      if(accPeriod==='1d'){
+        const today=new Date(); today.setHours(0,0,0,0); const t0=today.getTime();
+        basePts = base.points.filter(p=>p.time>=t0);
+        if(basePts.length<2){
+          const lastDay=new Date(base.points[base.points.length-1].time); lastDay.setHours(0,0,0,0);
+          basePts=base.points.filter(p=>{const d=new Date(p.time);d.setHours(0,0,0,0);return d.getTime()===lastDay.getTime();});
+        }
+      } else {
+        basePts = base.points.filter(p=>p.time>=rt);
+      }
       if(basePts.length<2){
         el.innerHTML='<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-4);font-size:12px;text-align:center">Historique trop court<br>depuis le '+new Date(refDate).toLocaleDateString('fr-FR')+'</div>';
         continue;
       }
 
+      const tol = accPeriod==='1d' ? 6*3600*1000 : Infinity;
       const evo = basePts.map(bp=>{
         let total = fixedVal;
         histories.forEach(({h, points})=>{
           if(points.length===0){ total += (h.current||0); return; }
-          let closest=points[0];
-          for(const pt of points){ if(Math.abs(pt.time-bp.time)<Math.abs(closest.time-bp.time)) closest=pt; }
-          total += (h.qty||0)*closest.price;
+          let closest=null, bestDiff=Infinity;
+          for(const pt of points){ const d=Math.abs(pt.time-bp.time); if(d<bestDiff){bestDiff=d;closest=pt;} }
+          const price=(closest && bestDiff<=tol)?closest.price:((h.current||0)/(h.qty||1));
+          total += (h.qty||0)*price;
         });
         return {time:bp.time, price:+total.toFixed(2)};
       });
